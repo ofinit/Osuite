@@ -1,0 +1,134 @@
+/* Shared OSuite theme: tokens, base styles and component utilities.
+   Apps import this instead of tailwindcss directly. */
+@import '@fontsource-variable/public-sans';
+@import 'tailwindcss';
+@source './src';
+
+/* Ledger palette: cool ruled paper, ink, one crimson margin rule. */
+:root {
+  --paper: #f6f7f9;
+  --sheet: #ffffff;
+  --ink: #1a2233;
+  --ink-2: #4a5466;
+  --ink-3: #7a8396;
+  --rule: #e3e6ec;
+  --rule-strong: #cfd4dd;
+  --accent: #23408e;
+  --accent-soft: #e8edf8;
+  --crimson: #a3141b;
+  --crimson-soft: #fbeceb;
+  --amber: #8a5a00;
+  --amber-soft: #fdf3dc;
+  --ok: #1d6b45;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper: #12161e;
+    --sheet: #181d27;
+    --ink: #e7eaf0;
+    --ink-2: #b3bac7;
+    --ink-3: #848c9c;
+    --rule: #262d3a;
+    --rule-strong: #343c4b;
+    --accent: #8fa8f0;
+    --accent-soft: #1f2a46;
+    --crimson: #f07a7f;
+    --crimson-soft: #3a1c1f;
+    --amber: #f0c060;
+    --amber-soft: #332710;
+    --ok: #6fcf9a;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --font-sans: 'Public Sans Variable', system-ui, sans-serif;
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-crimson: var(--crimson);
+  --color-crimson-soft: var(--crimson-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-ok: var(--ok);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  font-feature-settings: 'tnum' 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@utility field-input {
+  @apply h-9 w-full rounded-[5px] border border-rule-strong bg-sheet px-2.5 text-ink outline-none placeholder:text-ink-3;
+  transition: border-color 120ms;
+  &:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  &[aria-invalid='true'] {
+    border-color: var(--crimson);
+  }
+  &:disabled {
+    background: var(--paper);
+    color: var(--ink-2);
+  }
+}
+
+@utility btn {
+  @apply inline-flex h-9 items-center gap-1.5 rounded-[5px] px-3 font-medium whitespace-nowrap select-none disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-accent text-white hover:brightness-110;
+}
+@utility btn-quiet {
+  @apply btn text-ink-2 hover:bg-rule hover:text-ink;
+}
+@utility btn-outline {
+  @apply btn border border-rule-strong bg-sheet text-ink hover:border-ink-3;
+}
+@utility kbd {
+  @apply inline-flex min-w-5 items-center justify-center rounded border border-rule-strong bg-sheet px-1 text-[11px] font-medium text-ink-3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+}
+.panel-in {
+  animation: panel-in 160ms ease-out;
+}

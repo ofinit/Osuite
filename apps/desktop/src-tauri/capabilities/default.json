@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Splash window only; the app UI is served by the local server and needs no IPC.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

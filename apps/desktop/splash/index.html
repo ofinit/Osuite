@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OSuite</title>
+    <style>
+      :root { --paper: #f6f7f9; --ink: #1a2233; --ink-2: #4a5466; --crimson: #a3141b; --rule: #cfd4dd; }
+      @media (prefers-color-scheme: dark) { :root { --paper: #12161e; --ink: #e7eaf0; --ink-2: #b3bac7; --crimson: #f07a7f; --rule: #343c4b; } }
+      html, body { height: 100%; margin: 0; }
+      body { display: grid; place-items: center; background: var(--paper); color: var(--ink);
+             font: 14px/1.45 system-ui, 'Segoe UI', sans-serif; }
+      main { text-align: center; max-width: 420px; padding: 0 16px; }
+      p { color: var(--ink-2); margin: 12px 0 0; }
+      #error { display: none; color: var(--crimson); white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg width="40" height="40" viewBox="0 0 26 26" aria-hidden="true">
+        <rect x="1" y="1" width="24" height="24" rx="5" fill="none" stroke="var(--rule)" />
+        <line x1="8" y1="2" x2="8" y2="24" stroke="var(--crimson)" stroke-width="1.5" />
+        <circle cx="15.5" cy="13" r="5" fill="none" stroke="var(--ink)" stroke-width="2.2" />
+      </svg>
+      <p id="status">Starting OSuite…</p>
+      <p id="error"></p>
+    </main>
+    <script>
+      // Called by the shell if the local server fails to start.
+      window.showError = (message) => {
+        document.getElementById('status').textContent = 'OSuite could not start.';
+        const el = document.getElementById('error');
+        el.textContent = message;
+        el.style.display = 'block';
+      };
+    </script>
+  </body>
+</html>

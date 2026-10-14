@@ -1,0 +1,33 @@
+// Entry point for drizzle-kit: every table, system and generated.
+import { tables } from '../registry.ts';
+
+export { auditLog, sequences, sessions, settings, users } from './tables.ts';
+
+export const contact = tables.get('base.contact')!;
+export const productCategory = tables.get('base.product_category')!;
+export const product = tables.get('base.product')!;
+export const salesInvoice = tables.get('sales.invoice')!;
+export const salesInvoiceLine = tables.get('sales.invoice_line')!;
+export const purchaseBill = tables.get('purchase.bill')!;
+export const purchaseBillLine = tables.get('purchase.bill_line')!;
+export const stockWarehouse = tables.get('stock.warehouse')!;
+export const stockQuant = tables.get('stock.quant')!;
+export const stockMove = tables.get('stock.move')!;
+export const stockAdjustment = tables.get('stock.adjustment')!;
+export const stockAdjustmentLine = tables.get('stock.adjustment_line')!;
+export const accountPayment = tables.get('account.payment')!;
+export const accountPaymentLine = tables.get('account.payment_line')!;
+export const accountAccount = tables.get('account.account')!;
+export const accountEntry = tables.get('account.entry')!;
+export const accountEntryLine = tables.get('account.entry_line')!;
+export const salesCreditNote = tables.get('sales.credit_note')!;
+export const salesCreditNoteLine = tables.get('sales.credit_note_line')!;
+export const purchaseDebitNote = tables.get('purchase.debit_note')!;
+export const purchaseDebitNoteLine = tables.get('purchase.debit_note_line')!;
+export const accountManual = tables.get('account.manual')!;
+export const accountManualLine = tables.get('account.manual_line')!;
+export const accountBankAccount = tables.get('account.bank_account')!;
+export const accountStatement = tables.get('account.statement')!;
+export const accountStatementLine = tables.get('account.statement_line')!;
+export const accountSettlement = tables.get('account.settlement')!;
+export const accountYearClose = tables.get('account.year_close')!;

@@ -1,0 +1,1 @@
+ALTER TABLE "product" ADD COLUMN "reorder_level" numeric(16, 3) DEFAULT '0';

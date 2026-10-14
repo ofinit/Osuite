@@ -1,0 +1,30 @@
+{
+  "name": "osuite",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db:start": "node scripts/devdb.mjs start",
+    "db:stop": "node scripts/devdb.mjs stop",
+    "keys:dev": "node scripts/dev-keys.mjs",
+    "dev:server": "pnpm --filter @osuite/server dev",
+    "dev:web": "pnpm --filter @osuite/web dev",
+    "dev:admin": "pnpm --filter @osuite/admin-api dev",
+    "dev:admin-web": "pnpm --filter @osuite/admin-web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "e2e": "node scripts/run-e2e.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "jsqr": "^1.4.0",
+    "playwright-core": "^1.64.0",
+    "pngjs": "^7.0.0",
+    "postject": "1.0.0-alpha.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  }
+}
