@@ -17,6 +17,7 @@ import { ageing } from '../modules/account/service.ts';
 import { getCompany, updateCompany } from '../services/company.ts';
 import type { AuthService, SetupInput } from '../services/auth.ts';
 import type { BackupService } from '../services/backup.ts';
+import type { EInvoiceService } from '../modules/einvoice/service.ts';
 import type { LicenseManager } from '../services/license.ts';
 import { RecordError, type RecordService } from '../services/records.ts';
 
@@ -33,6 +34,7 @@ export interface AppDeps {
   records: RecordService;
   license: LicenseManager;
   backups: BackupService;
+  einvoice: EInvoiceService;
   onShutdown: () => Promise<void>;
 }
 
@@ -266,6 +268,47 @@ export async function buildApp(deps: AppDeps) {
   app.get('/api/reports/gstr-3b', async (req: Req) => {
     requireUser(req);
     return gstr3b(deps.db, req.query.month);
+  });
+
+  // ------------------------------------------------------------- e-invoicing
+  app.get('/api/einvoice/settings', async (req: Req) => {
+    requireUser(req);
+    return { ...(await deps.einvoice.getSettings()), providers: await deps.einvoice.providerList() };
+  });
+
+  app.put('/api/einvoice/settings', async (req: Req) => {
+    requireAdmin(req);
+    writable();
+    return deps.einvoice.saveSettings((req.body ?? {}) as Record<string, never>);
+  });
+
+  app.get('/api/einvoice/:model/:id', async (req: Req) => {
+    requireUser(req);
+    return deps.einvoice.preview(req.params.model!, parseId(req.params.id));
+  });
+
+  app.post('/api/einvoice/:model/:id/generate', async (req: Req) => {
+    const u = requireUser(req);
+    writable();
+    return deps.einvoice.generate(req.params.model!, parseId(req.params.id), u.id);
+  });
+
+  app.post('/api/einvoice/:model/:id/cancel', async (req: Req) => {
+    const u = requireUser(req);
+    writable();
+    return deps.einvoice.cancel(req.params.model!, parseId(req.params.id), (req.body ?? {}) as Record<string, string>, u.id);
+  });
+
+  app.post('/api/einvoice/:model/:id/ewaybill', async (req: Req) => {
+    const u = requireUser(req);
+    writable();
+    return deps.einvoice.eWayBill(req.params.model!, parseId(req.params.id), (req.body ?? {}) as never, u.id);
+  });
+
+  app.post('/api/einvoice/:model/:id/ewaybill/cancel', async (req: Req) => {
+    const u = requireUser(req);
+    writable();
+    return deps.einvoice.cancelEWayBill(req.params.model!, parseId(req.params.id), (req.body ?? {}) as Record<string, string>, u.id);
   });
 
   // ------------------------------------------------------------- backups

@@ -4,18 +4,29 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Printer } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { api, type Company } from '../lib/api.ts';
 import { formatDate, formatDecimal } from '../lib/format.ts';
 import { useSession } from '../lib/session.ts';
 
 type Line = Record<string, unknown>;
+type Variant = 'invoice' | 'credit_note' | 'quotation' | 'proforma';
+
+const VARIANT: Record<Variant, { title: string; noun: string; numberLabel: string; dateLabel: string }> = {
+  invoice: { title: 'Tax Invoice', noun: 'tax invoice', numberLabel: 'Invoice no.', dateLabel: 'Invoice date' },
+  credit_note: { title: 'Credit Note', noun: 'credit note', numberLabel: 'Credit note no.', dateLabel: 'Date' },
+  quotation: { title: 'Quotation', noun: 'quotation', numberLabel: 'Quotation no.', dateLabel: 'Date' },
+  proforma: { title: 'Proforma Invoice', noun: 'proforma invoice', numberLabel: 'Proforma no.', dateLabel: 'Date' },
+};
 const stateName = (code: unknown) => IN_STATES.find(([c]) => c === code)?.[1] ?? '';
 const money = (v: unknown) => formatDecimal(String(v ?? 0));
 
 export function PrintView() {
   const { model = '', id = '' } = useParams();
+  const [params] = useSearchParams();
   const { company } = useSession();
+  const variant: Variant | null =
+    model === 'sales.invoice' ? 'invoice' : model === 'sales.credit_note' ? 'credit_note' : model === 'sales.quotation' ? (params.get('as') === 'proforma' ? 'proforma' : 'quotation') : null;
   const { data: doc, error } = useQuery({ queryKey: ['record', model, Number(id)], queryFn: () => api.read(model, Number(id)) });
   const customerId = (doc?.customerId as { id: number } | null)?.id;
   const { data: customer } = useQuery({
@@ -29,7 +40,7 @@ export function PrintView() {
   }, [doc]);
 
   if (error) return <p className="p-8 text-crimson">{error.message}</p>;
-  if (model !== 'sales.invoice' && model !== 'sales.credit_note') return <p className="p-8">This document has no print layout.</p>;
+  if (!variant) return <p className="p-8">This document has no print layout.</p>;
   if (!doc || !customer) return null;
 
   return (
@@ -44,14 +55,17 @@ export function PrintView() {
         </button>
       </div>
       <div className="mx-auto my-6 w-[210mm] max-w-full bg-white p-[12mm] text-[12px] leading-snug text-black shadow-sm print:m-0 print:w-auto print:p-0 print:shadow-none">
-        <TaxInvoice doc={doc} customer={customer} company={company} isCreditNote={model === 'sales.credit_note'} />
+        <TaxInvoice doc={doc} customer={customer} company={company} variant={variant} />
       </div>
       <style>{'@page { size: A4; margin: 12mm; } @media print { html, body { background: #fff !important; } }'}</style>
     </div>
   );
 }
 
-function TaxInvoice({ doc, customer, company, isCreditNote }: { doc: RecordData; customer: RecordData; company: Company | null; isCreditNote: boolean }) {
+function TaxInvoice({ doc, customer, company, variant }: { doc: RecordData; customer: RecordData; company: Company | null; variant: Variant }) {
+  const v = VARIANT[variant];
+  const isCreditNote = variant === 'credit_note';
+  const isQuote = variant === 'quotation' || variant === 'proforma';
   const lines = (doc.lines as Line[]) ?? [];
   const intraState = Number(doc.igstAmount) === 0 && (Number(doc.cgstAmount) > 0 || company?.stateCode === doc.placeOfSupply);
   const calc = computeGst(
@@ -73,8 +87,18 @@ function TaxInvoice({ doc, customer, company, isCreditNote }: { doc: RecordData;
   });
 
   const state = String(doc.state);
-  const kind = isCreditNote ? 'credit note' : 'tax invoice';
-  const banner = state === 'draft' ? `Draft: not a valid ${kind}` : state === 'cancelled' ? 'Cancelled' : null;
+  const banner =
+    doc.irnStatus === 'cancelled'
+      ? 'E-invoice cancelled'
+      : state === 'draft'
+      ? isQuote
+        ? `Draft ${v.noun}`
+        : `Draft: not a valid ${v.noun}`
+      : state === 'cancelled'
+        ? 'Cancelled'
+        : state === 'declined'
+          ? 'Declined'
+          : null;
   const address = [customer.street, customer.street2, [customer.city, customer.pincode].filter(Boolean).join(' '), stateName(customer.stateCode)]
     .filter((p) => p)
     .map(String);
@@ -109,10 +133,12 @@ function TaxInvoice({ doc, customer, company, isCreditNote }: { doc: RecordData;
           </div>
         </div>
         <div className="text-right">
-          <p className="text-[18px] font-bold tracking-wide">{isCreditNote ? 'Credit Note' : 'Tax Invoice'}</p>
-          <p className="text-[11px]">Original for recipient</p>
+          <p className="text-[18px] font-bold tracking-wide">{v.title}</p>
+          <p className="text-[11px]">{isQuote ? 'This is not a tax invoice' : 'Original for recipient'}</p>
         </div>
       </header>
+
+      {!!doc.irn && <IrnBlock doc={doc} />}
 
       <section className="grid grid-cols-2 gap-6 border-b border-black py-3">
         <div>
@@ -125,7 +151,7 @@ function TaxInvoice({ doc, customer, company, isCreditNote }: { doc: RecordData;
           {!!customer.phone && <p>Phone: {String(customer.phone)}</p>}
         </div>
         <dl className="grid grid-cols-[auto_1fr] content-start gap-x-4 gap-y-0.5">
-          <dt>{isCreditNote ? 'Credit note no.' : 'Invoice no.'}</dt>
+          <dt>{v.numberLabel}</dt>
           <dd className="font-semibold">{doc.number ? String(doc.number) : '—'}</dd>
           {isCreditNote && (
             <>
@@ -133,8 +159,14 @@ function TaxInvoice({ doc, customer, company, isCreditNote }: { doc: RecordData;
               <dd>{(doc.invoiceId as { display: string } | null)?.display}</dd>
             </>
           )}
-          <dt>{isCreditNote ? 'Date' : 'Invoice date'}</dt>
+          <dt>{v.dateLabel}</dt>
           <dd>{formatDate(String(doc.date))}</dd>
+          {!!doc.validUntil && (
+            <>
+              <dt>Valid until</dt>
+              <dd>{formatDate(String(doc.validUntil))}</dd>
+            </>
+          )}
           {!!doc.dueDate && (
             <>
               <dt>Due date</dt>
@@ -151,8 +183,12 @@ function TaxInvoice({ doc, customer, company, isCreditNote }: { doc: RecordData;
               <dd>{String(doc.reference)}</dd>
             </>
           )}
-          <dt>Reverse charge</dt>
-          <dd>No</dd>
+          {!isQuote && (
+            <>
+              <dt>Reverse charge</dt>
+              <dd>No</dd>
+            </>
+          )}
         </dl>
       </section>
 
@@ -269,9 +305,9 @@ function TaxInvoice({ doc, customer, company, isCreditNote }: { doc: RecordData;
 
       {!!doc.notes && <p className="mt-3 whitespace-pre-line">{String(doc.notes)}</p>}
 
-      {!isCreditNote && <PaymentDetails company={company} doc={doc} />}
+      {(variant === 'invoice' || variant === 'proforma') && <PaymentDetails company={company} doc={doc} />}
 
-      {company?.invoiceTerms && (
+      {!isQuote && company?.invoiceTerms && (
         <section className="mt-3">
           <p className="font-semibold">Terms</p>
           <p className="whitespace-pre-line">{company.invoiceTerms}</p>
@@ -280,7 +316,7 @@ function TaxInvoice({ doc, customer, company, isCreditNote }: { doc: RecordData;
 
       <footer className="mt-10 flex items-end justify-between">
         <p className="flex items-center gap-1.5 text-[10px] text-black/60">
-          <BrandMark className="scale-75" /> Computer-generated {isCreditNote ? 'credit note' : 'invoice'}
+          <BrandMark className="scale-75" /> Computer-generated {v.noun}
         </p>
         <div className="text-right">
           <p>For {company?.name}</p>
@@ -291,13 +327,55 @@ function TaxInvoice({ doc, customer, company, isCreditNote }: { doc: RecordData;
   );
 }
 
+/** IRN, acknowledgement and e-way bill, with the IRP-signed QR code the rules require on the invoice. */
+function IrnBlock({ doc }: { doc: RecordData }) {
+  const [qr, setQr] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    void QRCode.toString(String(doc.irnSignedQr), { type: 'svg', margin: 2, errorCorrectionLevel: 'L' }).then((svg) => {
+      if (live) setQr(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`);
+    });
+    return () => {
+      live = false;
+    };
+  }, [doc.irnSignedQr]);
+  const ack = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(
+    new Date(String(doc.irnAckDate)),
+  );
+  return (
+    <section className="flex items-start justify-between gap-6 border-b border-black py-2">
+      <dl className="grid grid-cols-[auto_1fr] content-start gap-x-3 gap-y-0.5">
+        {!!doc.irnSimulated && (
+          <dd className="col-span-2 mb-1 font-bold">SIMULATED E-INVOICE: not registered with the GST portal</dd>
+        )}
+        <dt className="font-semibold">IRN</dt>
+        <dd className="font-mono text-[10.5px] break-all">{String(doc.irn)}</dd>
+        <dt className="font-semibold">Ack no.</dt>
+        <dd>{String(doc.irnAckNo)}</dd>
+        <dt className="font-semibold">Ack date</dt>
+        <dd>{ack}</dd>
+        {doc.ewbStatus === 'active' && (
+          <>
+            <dt className="font-semibold">E-way bill</dt>
+            <dd>
+              {String(doc.ewbNo)}, valid until {formatDate(String(doc.ewbValidUntil))}
+            </dd>
+          </>
+        )}
+      </dl>
+      {qr && <img src={qr} alt="E-invoice QR code signed by the IRP" className="size-36 shrink-0" />}
+    </section>
+  );
+}
+
 /** Bank details and, for posted invoices, a UPI QR code for the exact amount. */
 function PaymentDetails({ company, doc }: { company: Company | null; doc: RecordData }) {
   const [qr, setQr] = useState<string | null>(null);
-  const payable = doc.state === 'posted' && company?.upiId && Number(doc.totalAmount) > 0;
+  // Posted invoices, and proformas the customer may pay in advance.
+  const payable = (doc.state === 'posted' || doc.state === 'sent' || doc.state === 'accepted') && company?.upiId && Number(doc.totalAmount) > 0;
   useEffect(() => {
     if (!payable) return;
-    const link = upiPayLink({ upiId: company.upiId!, payee: company.name, amount: String(doc.totalAmount), note: `Invoice ${String(doc.number)}` });
+    const link = upiPayLink({ upiId: company.upiId!, payee: company.name, amount: String(doc.totalAmount), note: `${doc.state === 'posted' ? 'Invoice' : 'Proforma'} ${String(doc.number)}` });
     let live = true;
     void QRCode.toString(link, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' }).then((svg) => {
       if (live) setQr(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`);

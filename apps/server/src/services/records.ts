@@ -447,6 +447,7 @@ export function createRecordService(db: Db) {
             const [existing] = await tx.select().from(table).where(eq(table.id, id)).for('update');
             if (!existing) throw new RecordError(404, `${model.label} not found`);
             assertEditable(model, existing, 'deleted');
+            await hooks.get(model.name)?.beforeRemove?.({ tx, userId }, existing);
             const [deleted] = await tx.delete(table).where(eq(table.id, id)).returning();
             await appendAudit(tx, { userId, model: name, recordId: id, action: 'delete', changes: diff(deleted!, {}, model) });
           }),

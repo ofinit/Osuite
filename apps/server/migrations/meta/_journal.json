@@ -106,6 +106,20 @@
       "when": 1792002229718,
       "tag": "0014_product_reorder_level",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1792039980759,
+      "tag": "0015_quotations",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792043211027,
+      "tag": "0016_einvoice",
+      "breakpoints": true
     }
   ]
 }

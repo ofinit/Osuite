@@ -8,15 +8,16 @@ import { defaults, fillFrom, linesPayload, type Values } from '../lib/document.t
 import { formatDateTime, formatValue } from '../lib/format.ts';
 import { quickActions } from '../lib/quickActions.ts';
 import { useMeta, useSession } from '../lib/session.ts';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Field } from './fields.tsx';
 import { ApplyCredit } from './ApplyCredit.tsx';
+import { EInvoicePanel } from './EInvoicePanel.tsx';
 import { BalanceSummary } from './BalanceSummary.tsx';
 import { GstSummary } from './GstSummary.tsx';
 import { LinesEditor } from './LinesEditor.tsx';
 
 /** Models with a print layout (see views/PrintView.tsx). */
-export const PRINTABLE = new Set(['sales.invoice', 'sales.credit_note']);
+export const PRINTABLE = new Set(['sales.quotation', 'sales.invoice', 'sales.credit_note']);
 
 const idOf = (v: unknown) => (v && typeof v === 'object' ? ((v as Many2oneValue).id ?? null) : (v ?? null));
 
@@ -65,6 +66,7 @@ export function RecordPanel({
   const { license, company } = useSession();
   const { data: meta } = useMeta();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const isNew = id === 'new';
   const page = model.form.layout === 'page';
   const [tab, setTab] = useState<'details' | 'history'>('details');
@@ -139,6 +141,12 @@ export function RecordPanel({
       const f = model.states ? model.fields[model.states.field] : undefined;
       const state = f?.type === 'selection' ? f.options.find(([v]) => v === data[model.states!.field])?.[1] : null;
       setMessage({ kind: 'ok', text: state ? `${model.label} ${state.toLowerCase()}` : 'Done' });
+      // A quotation turned into an invoice: carry on in the new draft invoice.
+      const inv = data.invoiceId as { id: number } | null | undefined;
+      if (model.name === 'sales.quotation' && data.state === 'invoiced' && inv) {
+        void qc.invalidateQueries({ queryKey: ['list', 'sales.invoice'] });
+        void navigate(`/m/sales.invoice?id=${inv.id}`);
+      }
     },
     onError: fail,
   });
@@ -284,6 +292,19 @@ export function RecordPanel({
                 {stateLabel} {model.labelPlural.toLowerCase()} can’t be edited.
               </p>
             )}
+            {!isNew && record.data && (
+              <EInvoicePanel
+                model={model}
+                record={record.data}
+                onChanged={(text) => {
+                  void api.read(model.name, id as number).then((data) => {
+                    refresh(data);
+                    setValues(data);
+                  });
+                  setMessage({ kind: 'ok', text });
+                }}
+              />
+            )}
             {model.form.sections.map((s, i) => {
               const cols = s.columns ?? 2;
               return (
@@ -406,6 +427,11 @@ const STATE_STYLE: Record<string, string> = {
   draft: 'bg-paper text-ink-2 ring-1 ring-rule-strong',
   posted: 'bg-[color-mix(in_srgb,var(--ok)_14%,transparent)] text-ok',
   cancelled: 'bg-crimson-soft text-crimson',
+  sent: 'bg-accent-soft text-accent',
+  accepted: 'bg-[color-mix(in_srgb,var(--ok)_14%,transparent)] text-ok',
+  declined: 'bg-crimson-soft text-crimson',
+  invoiced: 'bg-paper text-ink-2 ring-1 ring-rule-strong',
+  active: 'bg-accent-soft text-accent',
   unpaid: 'bg-amber-soft text-amber',
   partial: 'bg-accent-soft text-accent',
   paid: 'bg-[color-mix(in_srgb,var(--ok)_14%,transparent)] text-ok',

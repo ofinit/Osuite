@@ -4,6 +4,7 @@ import { buildApp } from './http/app.ts';
 import { startEmbeddedPg, type EmbeddedPg } from './runtime/embedded-pg.ts';
 import { createAuthService } from './services/auth.ts';
 import { createBackupService } from './services/backup.ts';
+import { createEInvoiceService } from './modules/einvoice/service.ts';
 import { createLicenseManager } from './services/license.ts';
 import { createRecordService } from './services/records.ts';
 
@@ -40,6 +41,7 @@ async function main() {
     records: createRecordService(db),
     license,
     backups,
+    einvoice: createEInvoiceService(db),
     onShutdown: shutdown,
   });
 

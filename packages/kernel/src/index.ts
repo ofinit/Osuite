@@ -7,3 +7,4 @@ export * from './company.ts';
 export * from './stock.ts';
 export * from './money.ts';
 export * from './bank.ts';
+export * from './einvoice.ts';

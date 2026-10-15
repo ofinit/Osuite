@@ -19,6 +19,8 @@ export interface ModelHooks {
    * merged parent row, `lines` maps each lines field to its child rows.
    */
   compute?(ctx: HookCtx, record: Values, lines: Record<string, Values[]>): Promise<void> | void;
+  /** Runs in the delete transaction before the row goes, e.g. to unlink records that point at it. */
+  beforeRemove?(ctx: HookCtx, existing: Values): Promise<void>;
   /** Workflow actions (see ModelDef.actions); return values to write on the record. */
   actions?: Record<string, (ctx: HookCtx, record: Values, lines: Record<string, Values[]>) => Promise<Values | void>>;
 }

@@ -6,6 +6,8 @@ export { auditLog, sequences, sessions, settings, users } from './tables.ts';
 export const contact = tables.get('base.contact')!;
 export const productCategory = tables.get('base.product_category')!;
 export const product = tables.get('base.product')!;
+export const salesQuotation = tables.get('sales.quotation')!;
+export const salesQuotationLine = tables.get('sales.quotation_line')!;
 export const salesInvoice = tables.get('sales.invoice')!;
 export const salesInvoiceLine = tables.get('sales.invoice_line')!;
 export const purchaseBill = tables.get('purchase.bill')!;

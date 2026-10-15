@@ -1,5 +1,5 @@
 import { defineModel, defineModule, IN_STATES } from '@osuite/kernel';
-import { DOC_STATES, GST_LINE_COLUMNS, gstLineFields, gstTotalFields, NOTE_REASONS, noteSettlementFields, paymentFields } from '../gst-document.ts';
+import { DOC_STATES, einvoiceFields, GST_LINE_COLUMNS, gstLineFields, gstTotalFields, NOTE_REASONS, noteSettlementFields, paymentFields } from '../gst-document.ts';
 
 export const InvoiceLine = defineModel({
   name: 'sales.invoice_line',
@@ -43,6 +43,7 @@ export const Invoice = defineModel({
     notes: { type: 'text', label: 'Notes printed on the invoice' },
     ...gstTotalFields,
     ...paymentFields,
+    ...einvoiceFields,
   },
   list: { columns: ['number', 'date', 'customerId', 'totalAmount', 'amountDue', 'paymentState', 'state'] },
   form: {
@@ -118,6 +119,7 @@ export const CreditNote = defineModel({
     notes: { type: 'text', label: 'Notes printed on the credit note' },
     ...gstTotalFields,
     ...noteSettlementFields,
+    ...einvoiceFields,
   },
   list: { columns: ['number', 'date', 'customerId', 'invoiceId', 'reason', 'totalAmount', 'state'] },
   form: {
@@ -151,17 +153,90 @@ export const CreditNote = defineModel({
   ],
 });
 
+export const QUOTE_STATES = [
+  ['draft', 'Draft'],
+  ['sent', 'Sent'],
+  ['accepted', 'Accepted'],
+  ['declined', 'Declined'],
+  ['invoiced', 'Invoiced'],
+] as const;
+
+export const QuotationLine = defineModel({
+  name: 'sales.quotation_line',
+  table: 'sales_quotation_line',
+  label: 'Quotation line',
+  labelPlural: 'Quotation lines',
+  recName: 'description',
+  searchFields: ['description'],
+  order: 'sequence asc',
+  fields: gstLineFields({ inverse: 'quotationId', parent: 'sales.quotation', parentLabel: 'Quotation', price: 'salePrice' }),
+  list: { columns: GST_LINE_COLUMNS },
+  form: { sections: [{ fields: ['productId', 'description', 'hsnCode', 'qty', 'uom', 'unitPrice', 'discountPct', 'gstRate'] }] },
+});
+
+/** A priced offer to a customer; becomes a draft invoice when accepted. Never touches the books. */
+export const Quotation = defineModel({
+  name: 'sales.quotation',
+  table: 'sales_quotation',
+  label: 'Quotation',
+  labelPlural: 'Quotations',
+  recName: 'number',
+  searchFields: ['number', 'reference', 'customerId'],
+  order: 'id desc',
+  fields: {
+    number: { type: 'char', label: 'Number', maxLength: 30, readonly: true, unique: true },
+    state: { type: 'selection', label: 'Status', options: QUOTE_STATES, default: 'draft', readonly: true, required: true, index: true },
+    customerId: {
+      type: 'many2one',
+      label: 'Customer',
+      relation: 'base.contact',
+      required: true,
+      filter: { isCustomer: true },
+      fill: { placeOfSupply: 'stateCode', customerGstin: 'gstin' },
+    },
+    customerGstin: { type: 'char', label: 'Customer GSTIN', maxLength: 15 },
+    placeOfSupply: { type: 'selection', label: 'Place of supply', options: IN_STATES, required: true },
+    date: { type: 'date', label: 'Quotation date', required: true, default: 'today', index: true },
+    validUntil: { type: 'date', label: 'Valid until', help: '15 days from the quotation date if left empty' },
+    reference: { type: 'char', label: 'Customer enquiry / reference', maxLength: 60 },
+    lines: { type: 'lines', label: 'Items', model: 'sales.quotation_line', inverse: 'quotationId' },
+    notes: { type: 'text', label: 'Notes and terms printed on the quotation' },
+    invoiceId: { type: 'many2one', label: 'Invoice', relation: 'sales.invoice', readonly: true, visibleWhen: { state: 'invoiced' } },
+    ...gstTotalFields,
+  },
+  list: { columns: ['number', 'date', 'customerId', 'validUntil', 'totalAmount', 'state'] },
+  form: {
+    layout: 'page',
+    summary: 'gst',
+    sections: [
+      { columns: 3, fields: ['customerId', 'customerGstin', 'placeOfSupply', 'date', 'validUntil', 'reference', 'invoiceId'] },
+      { title: 'Items', columns: 1, fields: ['lines'] },
+      { title: 'Notes', columns: 1, fields: ['notes'] },
+    ],
+  },
+  gst: { placeOfSupplyField: 'placeOfSupply' },
+  states: { field: 'state', editable: ['draft'] },
+  actions: [
+    { name: 'send', label: 'Mark as sent', states: ['draft'], primary: true, confirm: 'Mark this quotation as sent? It gets the next quotation number and is locked; use Revise to change it.' },
+    { name: 'accept', label: 'Customer accepted', states: ['sent'] },
+    { name: 'toInvoice', label: 'Create invoice', states: ['sent', 'accepted'], primary: true, confirm: 'Create a draft invoice from this quotation?' },
+    { name: 'decline', label: 'Customer declined', states: ['sent', 'accepted'] },
+    { name: 'revise', label: 'Revise', states: ['sent', 'accepted', 'declined'], confirm: 'Reopen this quotation for changes? It keeps its number.' },
+  ],
+});
+
 export default defineModule({
   name: 'sales',
   label: 'Sales',
   depends: ['base', 'stock'],
-  models: [Invoice, InvoiceLine, CreditNote, CreditNoteLine],
+  models: [Quotation, QuotationLine, Invoice, InvoiceLine, CreditNote, CreditNoteLine],
   menus: [
     {
       id: 'sales',
       label: 'Sales',
       icon: 'receipt',
       children: [
+        { id: 'sales.quotations', label: 'Quotations', model: 'sales.quotation' },
         { id: 'sales.invoices', label: 'Invoices', model: 'sales.invoice' },
         { id: 'sales.credit_notes', label: 'Credit notes', model: 'sales.credit_note' },
         { id: 'sales.payments', label: 'Payments received', model: 'account.payment', filter: { direction: 'inbound' } },

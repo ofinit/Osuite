@@ -99,6 +99,29 @@ export interface Dashboard {
   drafts: { model: string; count: number }[];
 }
 
+export interface EInvoiceSettings {
+  enabled: boolean;
+  provider: string;
+  providers: { id: string; label: string; simulated: boolean }[];
+}
+
+export interface EInvoicePreview {
+  enabled: boolean;
+  skipReason: string | null;
+  problems: string[];
+  payload: Record<string, unknown>;
+}
+
+export interface EWayBillRequest {
+  distanceKm: number;
+  transMode?: string;
+  vehicleNo?: string;
+  transporterGstin?: string;
+  transporterName?: string;
+  transDocNo?: string;
+  transDocDate?: string;
+}
+
 export interface BackupInfo {
   name: string;
   kind: 'auto' | 'manual' | 'before-restore' | 'uploaded';
@@ -377,6 +400,16 @@ export const api = {
   closeYear: (fy: string) => request<{ fy: string; profit: string }>('POST', `/closing/years/${fy}/close`),
   reopenYear: (fy: string) => request<{ fy: string }>('POST', `/closing/years/${fy}/reopen`),
   dashboard: () => request<Dashboard>('GET', '/dashboard'),
+  einvoiceSettings: () => request<EInvoiceSettings>('GET', '/einvoice/settings'),
+  saveEinvoiceSettings: (v: { enabled: boolean; provider: string }) => request<EInvoiceSettings>('PUT', '/einvoice/settings', v),
+  einvoicePreview: (model: string, id: number) => request<EInvoicePreview>('GET', `/einvoice/${m(model)}/${id}`),
+  einvoiceGenerate: (model: string, id: number) =>
+    request<{ irn: string; ackNo: string; ackDate: string; simulated: boolean }>('POST', `/einvoice/${m(model)}/${id}/generate`, {}),
+  einvoiceCancel: (model: string, id: number, b: { reason: string; remark: string }) => request<{ cancelled: true }>('POST', `/einvoice/${m(model)}/${id}/cancel`, b),
+  ewayBill: (model: string, id: number, b: EWayBillRequest) =>
+    request<{ ewbNo: string; ewbDate: string; validUntil: string }>('POST', `/einvoice/${m(model)}/${id}/ewaybill`, b),
+  ewayBillCancel: (model: string, id: number, b: { reason: string; remark: string }) =>
+    request<{ cancelled: true }>('POST', `/einvoice/${m(model)}/${id}/ewaybill/cancel`, b),
   backups: () => request<BackupStatus>('GET', '/backups'),
   backupNow: () => request<BackupInfo>('POST', '/backups'),
   saveBackupSettings: (s: Partial<BackupSettings>) => request<BackupSettings>('PUT', '/backups/settings', s),

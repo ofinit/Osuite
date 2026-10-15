@@ -2,7 +2,7 @@
 // directory, listening on loopback only with a generated password.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import pg from 'pg';
 
@@ -36,15 +36,37 @@ export async function startEmbeddedPg(pgBin: string, dataDir: string, port: numb
     }
   }
   const password = readFileSync(passFile, 'utf8').trim();
-  const ctl = (args: string[]) => spawnSync(exe('pg_ctl'), args, { stdio: 'ignore', windowsHide: true });
+  // stdout must not be a pipe: the postmaster inherits pg_ctl's handles on Windows,
+  // so a pipe would never close. pg_ctl's own messages go to a file instead.
+  const ctlLog = join(dataDir, 'pg_ctl.log');
+  const ctl = (args: string[]) => {
+    const fd = openSync(ctlLog, 'w');
+    try {
+      return spawnSync(exe('pg_ctl'), args, { stdio: ['ignore', fd, fd], windowsHide: true });
+    } finally {
+      closeSync(fd);
+    }
+  };
+  const ctlOutput = () => {
+    try {
+      return readFileSync(ctlLog, 'utf8').trim();
+    } catch {
+      return '';
+    }
+  };
 
-  if (ctl(['status', '-D', clusterDir]).status !== 0) {
+  // A cluster left running (e.g. after a crash) keeps the port it started on.
+  let pgPort = port;
+  if (ctl(['status', '-D', clusterDir]).status === 0) {
+    const pidLines = readFileSync(join(clusterDir, 'postmaster.pid'), 'utf8').split(/\r?\n/);
+    pgPort = Number(pidLines[3]) || port;
+  } else {
     // stdio must be ignored: the postmaster inherits pg_ctl's handles on Windows.
     const r = ctl(['start', '-D', clusterDir, '-l', logFile, '-w', '-t', '60', '-o', `-p ${port} -h 127.0.0.1`]);
-    if (r.status !== 0) throw new Error(`PostgreSQL failed to start; see ${logFile}`);
+    if (r.status !== 0) throw new Error(`PostgreSQL failed to start (${r.error?.message ?? `exit ${r.status}`}): ${ctlOutput() || `see ${logFile}`}`);
   }
 
-  const auth = `${SUPERUSER}:${encodeURIComponent(password)}@127.0.0.1:${port}`;
+  const auth = `${SUPERUSER}:${encodeURIComponent(password)}@127.0.0.1:${pgPort}`;
   const admin = new pg.Client({ connectionString: `postgres://${auth}/postgres` });
   await admin.connect();
   try {

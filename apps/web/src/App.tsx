@@ -7,6 +7,7 @@ import { ActivateView } from './views/ActivateView.tsx';
 import { BalanceSheetView, Gstr1View, Gstr3bView, ProfitLossView, TrialBalanceView } from './views/AccountingReports.tsx';
 import { AgeingView } from './views/AgeingView.tsx';
 import { BackupView } from './views/BackupView.tsx';
+import { EInvoiceSettingsView } from './views/EInvoiceSettingsView.tsx';
 import { BankView, ReconcileStatementView } from './views/BankView.tsx';
 import { ClosingView } from './views/ClosingView.tsx';
 import { CompanyView } from './views/CompanyView.tsx';
@@ -42,6 +43,7 @@ const router = createBrowserRouter([
       { path: 'settings/users', element: <UsersView /> },
       { path: 'settings/license', element: <LicenseView /> },
       { path: 'settings/backups', element: <BackupView /> },
+      { path: 'settings/einvoice', element: <EInvoiceSettingsView /> },
     ],
   },
   { path: '/print/statement/:partnerId', element: <StatementPrintView /> },

@@ -1,6 +1,6 @@
 import type { MenuItem } from '@osuite/kernel';
 import clsx from 'clsx';
-import { BookOpen, Building2, ChevronDown, DatabaseBackup, KeyRound, LayoutGrid, LogOut, Menu, Package, ReceiptText, Search, ShoppingCart, Users, UserCog, Warehouse, type LucideIcon } from 'lucide-react';
+import { BookOpen, Building2, ChevronDown, DatabaseBackup, FileBadge, KeyRound, LayoutGrid, LogOut, Menu, Package, ReceiptText, Search, ShoppingCart, Users, UserCog, Warehouse, type LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { menuHref } from '../lib/menus.ts';
@@ -66,6 +66,7 @@ export function Shell() {
             <>
               <SideLink to="/settings/company" icon={Building2} label="Company" />
               <SideLink to="/settings/users" icon={UserCog} label="Users" />
+              <SideLink to="/settings/einvoice" icon={FileBadge} label="E-invoicing" />
               <SideLink to="/settings/backups" icon={DatabaseBackup} label="Backups" />
               <SideLink to="/settings/license" icon={KeyRound} label="Licence" />
             </>

@@ -95,6 +95,28 @@ export const noteSettlementFields = {
   unappliedAmount: { type: 'decimal', label: 'Left as credit', scale: 2, readonly: true, default: '0', visibleWhen: { state: 'posted' } },
 } as const;
 
+export const IRN_STATES = [
+  ['active', 'E-invoiced'],
+  ['cancelled', 'E-invoice cancelled'],
+] as const;
+
+const ON = ['active', 'cancelled'];
+
+/** GST e-invoice (IRN) and e-way bill details, written only by the e-invoicing service. */
+export const einvoiceFields: Record<string, FieldDef> = {
+  irnStatus: { type: 'selection', label: 'E-invoice', options: IRN_STATES, readonly: true, badge: true, visibleWhen: { irnStatus: ON } },
+  irn: { type: 'char', label: 'IRN', maxLength: 64, unique: true, readonly: true, visibleWhen: { irnStatus: ON } },
+  irnAckNo: { type: 'char', label: 'Ack no.', maxLength: 20, readonly: true, visibleWhen: { irnStatus: ON } },
+  irnAckDate: { type: 'datetime', label: 'Ack date', readonly: true, visibleWhen: { irnStatus: ON } },
+  // Kept for printing; not shown on the form.
+  irnSignedQr: { type: 'text', label: 'Signed QR', readonly: true },
+  irnSimulated: { type: 'bool', label: 'Simulated', default: false, readonly: true },
+  ewbStatus: { type: 'selection', label: 'E-way bill', options: IRN_STATES, readonly: true, visibleWhen: { ewbStatus: ON } },
+  ewbNo: { type: 'char', label: 'E-way bill no.', maxLength: 20, readonly: true, visibleWhen: { ewbStatus: ON } },
+  ewbDate: { type: 'datetime', label: 'E-way bill date', readonly: true, visibleWhen: { ewbStatus: ON } },
+  ewbValidUntil: { type: 'date', label: 'Valid until', readonly: true, visibleWhen: { ewbStatus: ON } },
+};
+
 /** A note (credit/debit) is issued against an original posted document. */
 export interface AppliesTo {
   /** many2one on the note pointing at the original document. */
@@ -224,6 +246,8 @@ export function gstDocumentHooks(model: ModelDef, opts: GstDocOptions): ModelHoo
     },
 
     async cancel({ tx, userId }, record) {
+      if (record.irnStatus === 'active')
+        throw new RecordError(409, 'This document has an active e-invoice. Cancel the e-invoice first (allowed within 24 hours of generation); after that, issue a credit note instead.');
       // A note's credit applied to other documents is returned first.
       if (opts.appliesTo) await reverseSettlements(tx, 'source', model.name, record.id as number, userId);
       if (money.isPositive(record.amountPaid as string))

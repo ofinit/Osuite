@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+.data
+_docs
+.git
+apps/desktop
+apps/server
+apps/web
+e2e
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+keys

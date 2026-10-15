@@ -9,6 +9,12 @@ const prefill = (values: Record<string, unknown>) => encodeURIComponent(JSON.str
 
 /** Shortcuts from a record to related work, e.g. paying or crediting an invoice. */
 export function quickActions(model: ModelDef, rec: RecordData | undefined): QuickAction[] {
+  if (model.name === 'sales.quotation') {
+    const inv = rec?.invoiceId as { id: number } | null | undefined;
+    if (inv) return [{ label: 'Open invoice', href: `/m/sales.invoice?id=${inv.id}` }];
+    if (rec && rec.state !== 'draft') return [{ label: 'Print as proforma invoice', href: `/print/sales.quotation/${String(rec.id)}?as=proforma` }];
+    return [];
+  }
   if (!rec || rec.state !== 'posted') return [];
   const doc = { id: rec.id, display: String(rec.number) };
   const due = Number(rec.amountDue) > 0;
