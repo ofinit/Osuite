@@ -1,0 +1,201 @@
+---
+import '../styles/site.css';
+import Mark from '../components/Mark.astro';
+import { API, siteData } from '../lib/site';
+
+interface Props {
+  title: string;
+  description: string;
+  /** Kept for older pages; every page now has the same header. */
+  plainHeader?: boolean;
+}
+const { title, description } = Astro.props;
+const { business: b } = await siteData();
+const canonical = new URL(Astro.url.pathname.replace(/\/$/, '') || '/', Astro.site);
+const year = new Date().getFullYear();
+const nav = [
+  { href: '/features', label: 'Product' },
+  { href: '/pricing', label: 'Pricing' },
+  { href: '/security', label: 'Your data' },
+  { href: '/contact', label: 'Contact' },
+];
+const columns = [
+  {
+    title: 'Product',
+    links: [
+      { href: '/features/invoicing', label: 'Invoicing' },
+      { href: '/features/gst-returns', label: 'GST returns' },
+      { href: '/features/e-invoicing', label: 'E-invoicing' },
+      { href: '/features/inventory', label: 'Inventory' },
+      { href: '/features/accounting', label: 'Accounting' },
+      { href: '/features', label: 'Everything else' },
+    ],
+  },
+  {
+    title: 'Get started',
+    links: [
+      { href: '/download', label: 'Download' },
+      { href: '/pricing', label: 'Pricing' },
+      { href: '/security', label: 'Your data' },
+      { href: '/about', label: 'About' },
+      { href: '/contact', label: 'Contact' },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { href: '/legal/terms', label: 'Terms' },
+      { href: '/legal/privacy', label: 'Privacy' },
+      { href: '/legal/refunds', label: 'Refunds' },
+      { href: '/legal/delivery', label: 'Delivery' },
+      { href: '/legal/eula', label: 'Licence agreement' },
+    ],
+  },
+];
+const address = [b.street, b.street2, [b.city, b.pincode].filter(Boolean).join(' '), b.state].filter(Boolean).join(', ');
+const here = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="en-IN" data-api={API}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content="en_IN" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script is:inline>document.documentElement.classList.add('js')</script>
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="bar">
+      <div class="container bar-inner">
+        <a class="wordmark" href="/" aria-label={`${b.brandName} home`}>
+          <Mark size={28} />
+          <span>{b.brandName}</span>
+        </a>
+        <nav class="nav" aria-label="Main">
+          {
+            nav.map((n) => (
+              <a class="link" href={n.href} aria-current={here.startsWith(n.href) ? 'page' : undefined}>
+                {n.label}
+              </a>
+            ))
+          }
+        </nav>
+        <a class="button bar-cta" href="/download">Start free trial</a>
+      </div>
+    </header>
+    <main id="main">
+      <slot />
+    </main>
+    <footer class="foot on-navy">
+      <div class="container">
+        <div class="foot-cta">
+          <p class="foot-pitch">Your books, on your own PC.</p>
+          <div class="foot-actions">
+            <a class="button on-dark" href="/download">
+              Start the 14-day trial
+              <span class="btn-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16"><path d="M4 12 12 4M6 4h6v6" fill="none" stroke="currentColor" stroke-width="1.5" /></svg>
+              </span>
+            </a>
+            <a class="link-plain foot-alt" href="/contact">Talk to us</a>
+          </div>
+        </div>
+        <div class="foot-grid">
+          <div class="foot-brand">
+            <a class="wordmark on-navy-mark" href="/">
+              <Mark size={28} paper="#f4f6fb" />
+              <span>{b.brandName}</span>
+            </a>
+            <p class="small foot-tag" data-biz="tagline">{b.tagline}</p>
+            <ul class="foot-contact small">
+              <li data-biz-if="supportEmail" hidden={!b.supportEmail}>
+                <a class="link" data-biz-href="mailto:supportEmail" href={`mailto:${b.supportEmail}`}><span data-biz="supportEmail">{b.supportEmail}</span></a>
+              </li>
+              <li data-biz-if="phone" hidden={!b.phone}>
+                <a class="link" data-biz-href="tel:phone" href={`tel:${(b.phone ?? '').replace(/[^\d+]/g, '')}`}><span data-biz="phone">{b.phone}</span></a>
+              </li>
+              <li data-biz-if="supportHours" hidden={!b.supportHours}><span data-biz="supportHours">{b.supportHours}</span></li>
+            </ul>
+          </div>
+          {
+            columns.map((c) => (
+              <nav class="foot-col" aria-label={c.title}>
+                <p class="foot-col-title small">{c.title}</p>
+                <ul>
+                  {c.links.map((l) => (
+                    <li>
+                      <a class="link" href={l.href}>
+                        {l.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ))
+          }
+        </div>
+        <div class="foot-meta small">
+          <p>
+            © {year} <span data-biz="legalName">{b.legalName}</span><span data-biz-if="street" hidden={!address}>. {address}</span>
+          </p>
+          <p>Screens show a fictitious demo company.</p>
+        </div>
+      </div>
+    </footer>
+    <script>
+      import '../scripts/reveal.ts';
+      import '../scripts/live-data.ts';
+    </script>
+  </body>
+</html>
+
+<style>
+  .skip { position: absolute; left: -9999px; }
+  .skip:focus { left: var(--margin); top: 0.5rem; z-index: 30; background: var(--bg); padding: 0.5rem 0.75rem; }
+
+  .bar { position: sticky; top: 0; z-index: 20; background: rgba(255, 255, 255, 0.86); backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px); }
+  .bar-inner { display: flex; align-items: center; gap: clamp(1rem, 3vw, 3rem); min-height: 4.5rem; }
+  .wordmark { display: inline-flex; align-items: center; gap: 0.6rem; font-family: var(--font-display); font-weight: 600; font-size: 1.25rem; letter-spacing: -0.03em; text-decoration: none; }
+  .nav { display: flex; gap: clamp(1rem, 2.4vw, 2.5rem); margin-right: auto; font-weight: 500; font-size: var(--step-small); }
+  .nav a { color: var(--muted); text-decoration-thickness: 1.5px; transition: color var(--t-hover) ease, text-decoration-color var(--t-hover) ease; }
+  .nav a:hover, .nav a[aria-current='page'] { color: var(--ink); }
+  .bar-cta { min-height: 2.75rem; font-size: 0.9375rem; }
+
+  .foot { background: var(--navy-deep); color: #e8ecf6; padding-block: clamp(4rem, 8vw, 8rem) 2.5rem; }
+  .foot-cta { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 2rem; padding-bottom: clamp(3rem, 6vw, 6rem); }
+  .foot-pitch { font-family: var(--font-display); font-weight: 600; font-size: var(--step-head); line-height: 1.04; letter-spacing: -0.04em; max-width: 16ch; color: #fff; }
+  .foot-actions { display: flex; align-items: center; gap: 1.75rem; }
+  .foot-alt { color: #fff; font-weight: 500; }
+  .foot-grid { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 2.5rem; padding-top: clamp(1rem, 2vw, 2rem); }
+  .on-navy-mark { color: #fff; }
+  .foot-tag { margin-top: 1rem; max-width: 34ch; color: #b9c3dc; }
+  .foot-contact { margin-top: 1.5rem; display: grid; gap: 0.4rem; color: #dfe5f3; }
+  .foot-col-title { color: #8f9bbd; font-weight: 500; margin-bottom: 1rem; }
+  .foot-col ul { display: grid; gap: 0.6rem; list-style: none; margin: 0; padding: 0; }
+  .foot-col a { color: #e8ecf6; }
+  .foot-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; margin-top: clamp(3rem, 5vw, 5rem); color: #8f9bbd; }
+  .foot-meta p { max-width: none; }
+
+  @media (max-width: 63.99em) {
+    .foot-grid { grid-template-columns: 1fr 1fr; }
+    .foot-brand { grid-column: 1 / -1; }
+  }
+  @media (max-width: 47.99em) {
+    .nav { display: none; }
+    .bar-inner { justify-content: space-between; }
+    .foot-actions { flex-wrap: wrap; }
+  }
+</style>

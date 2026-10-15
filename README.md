@@ -85,7 +85,27 @@ docker build -f apps/admin-api/Dockerfile -t osuite-admin-api .   # API + admin 
 
 The desktop build produces `apps/desktop/src-tauri/target/release/bundle/nsis/OSuite_<version>_x64-setup.exe` (about 52 MB: the shell, the server as a Node single-executable and a PostgreSQL 17 runtime). Toolchain: Rust (rustup, stable) and Visual Studio's "Desktop development with C++" workload (MSVC + Windows SDK). The shell picks free ports (47800 and 54329 when available, otherwise any free port), passes the system environment to the server (Tauri starts sidecars with an empty one, which breaks `pg_ctl`), converts Tauri's `\\?\` resource paths to plain ones (PostgreSQL's tools reject them), writes everything the server prints to `server.log` in `%APPDATA%\com.ofinit.osuite`, and on close asks the server to stop PostgreSQL cleanly. `pg_ctl`'s own messages go to `pg_ctl.log` there.
 
-Release builds must replace `apps/server/src/services/license-pubkey.ts` with the production public key, and code-sign the sidecar and installer (packaging the sidecar invalidates node.exe's own signature). Production builds check licences against the hosted admin API at `https://osuite.business` (development uses `http://127.0.0.1:47900`; `OSUITE_LICENSE_SERVER` overrides both).
+Release builds must replace `apps/server/src/services/license-pubkey.ts` with the production public key, and code-sign the sidecar and installer (packaging the sidecar invalidates node.exe's own signature). Production builds check licences against the hosted admin API at `https://api.osuite.business` (development uses `http://127.0.0.1:47900`; `OSUITE_LICENSE_SERVER` overrides both).
+
+## Website (osuite.business)
+
+`apps/site` is the marketing website, built with Astro as static pages and served by nginx (`apps/site/Dockerfile`). It follows the art direction in `.taste-skill/` ("The printed annual": white paper, black ink, navy and sage colour blocks, titles on a column line at 42% of the width).
+
+- **Pages:** home (with a live tax invoice computed by `@osuite/kernel`), `/features` and nine feature pages (`src/lib/features.ts`), pricing, download, contact, your data, about, terms, privacy, refunds, delivery, licence agreement, 404.
+- **Prices and business details are never hard-coded.** They are edited in the admin panel (Plans, and Business details) and published by the admin API at `GET /v1/site` (public, CORS `*`, cached 60 s). The build reads them (`SITE_API`, default `https://api.osuite.business`) so pages are complete without script; `src/scripts/live-data.ts` refreshes every element marked `data-biz` / `data-plan` in the browser, so an edit shows on the next page view without a rebuild. A cleared optional detail removes its line; a plan taken off sale disappears from the tables. The desktop app shows the same plans and support details on its Licence page (`GET /api/vendor`, cached on disk for offline use).
+- **Screenshots are the real product.** `node scripts/run-e2e.mjs .data/e2e-shots capture-screens` fills a fresh database with a fictitious company (Shree Ganesh Industrial Supplies, Pune: a year of invoices, bills, payments, a credit note, a quotation, an e-invoice and a bank statement) and captures 27 screens at 2x plus a screen recording into `apps/site/src/assets/screens` and `public/media`. Re-run it before a release so the site matches the product. Recording video needs Playwright's ffmpeg (`npx playwright-core install ffmpeg`).
+- **Preview:** start the admin API, run `node scripts/seed-site-sample.mjs` for sample details (dev only), then `SITE_API=http://127.0.0.1:47900 pnpm --filter @osuite/site build` and `pnpm --filter @osuite/site preview`.
+- **Checks:** the design gate (`node .claude/skills/design-taste-frontend/scripts/lint.mjs apps/site/src` and `inspect.mjs <url>`); `e2e/site-ui.mjs` proves admin-panel edits reach the built site.
+
+## Deploying on Coolify
+
+| Domain | Service | Port |
+|---|---|---|
+| `osuite.business` | `apps/site/Dockerfile` (build arg `SITE_API=https://api.osuite.business`) | 8080 |
+| `api.osuite.business` | `apps/admin-api/Dockerfile`: licence API (`/v1/*`), Razorpay webhook | 47900 |
+| `admin.osuite.business` | the same admin-api container: the staff admin panel | 47900 |
+
+The admin API needs `DATABASE_URL`, `LICENSE_PRIVATE_KEY` (production key), `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD` and `RAZORPAY_WEBHOOK_SECRET`. Desktop builds check licences at `https://api.osuite.business`.
 
 ## Licensing model
 

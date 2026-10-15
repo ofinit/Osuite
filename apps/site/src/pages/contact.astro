@@ -1,0 +1,150 @@
+---
+import Page from '../layouts/Page.astro';
+import PageHero from '../components/PageHero.astro';
+import ScreenCard from '../components/ScreenCard.astro';
+import { SCREENS } from '../lib/features';
+import { paidPlans, siteData } from '../lib/site';
+
+const data = await siteData();
+const b = data.business;
+const plans = paidPlans(data);
+const address = [b.street, b.street2, [b.city, b.pincode].filter(Boolean).join(' '), b.state].filter(Boolean);
+const sales = b.salesEmail || b.supportEmail;
+const digits = (v: string) => v.replace(/[^\d+]/g, '');
+---
+
+<Page title={`Contact ${b.brandName}`} description="Buy OSuite, ask for a demo, or get help moving from Tally. Email, phone and WhatsApp.">
+  <PageHero lines={['Talk to', 'a person']} lead="To buy a plan, see a demo, or move your books from Tally, write or call. A person answers, usually the same day." />
+
+  <section class="container talk" aria-label="Buy or get in touch">
+    <section class="buy" aria-labelledby="buy-title" data-reveal>
+      <h2 id="buy-title" class="head">Buy a plan</h2>
+      <form class="buy-form" data-buy-form action={sales ? `mailto:${sales}` : '/contact'} method="get">
+        <label>
+          <span>Plan</span>
+          <select name="plan" class="field" data-plan-select>
+            {plans.map((p) => <option value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Pay</span>
+          <select name="cycle" class="field">
+            <option value="yearly">Yearly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </label>
+        <label>
+          <span>Where it runs</span>
+          <select name="where" class="field">
+            <option value="desktop">On our own PC</option>
+            <option value="cloud">In the cloud</option>
+          </select>
+        </label>
+        <label class="wide">
+          <span>Your company and GSTIN (for the invoice)</span>
+          <input name="company" class="field" autocomplete="organization" />
+        </label>
+        <button class="button on-dark" type="submit">Write the email<span class="btn-icon" aria-hidden="true">→</span></button>
+        <p class="form-note">This opens an email to us with your choices filled in. We reply with a payment link for UPI, cards or net banking, and your licence key follows by email.</p>
+      </form>
+    </section>
+
+    <section class="ways" aria-labelledby="ways-title" data-reveal style="--i: 1">
+      <h2 id="ways-title" class="head">Other ways</h2>
+      <dl class="ways-list">
+        <div data-biz-if="salesEmail" hidden={!b.salesEmail}>
+          <dt>Sales</dt>
+          <dd><a data-biz-href="mailto:salesEmail" href={`mailto:${b.salesEmail}`}><span data-biz="salesEmail">{b.salesEmail}</span></a></dd>
+        </div>
+        <div data-biz-if="supportEmail" hidden={!b.supportEmail}>
+          <dt>Support</dt>
+          <dd><a data-biz-href="mailto:supportEmail" href={`mailto:${b.supportEmail}`}><span data-biz="supportEmail">{b.supportEmail}</span></a></dd>
+        </div>
+        <div data-biz-if="phone" hidden={!b.phone}>
+          <dt>Phone</dt>
+          <dd><a data-biz-href="tel:phone" href={`tel:${digits(b.phone ?? '')}`}><span data-biz="phone">{b.phone}</span></a></dd>
+        </div>
+        <div data-biz-if="whatsapp" hidden={!b.whatsapp}>
+          <dt>WhatsApp</dt>
+          <dd><a data-biz-href="wa:whatsapp" href={`https://wa.me/${(b.whatsapp ?? '').replace(/\D/g, '')}`}><span data-biz="whatsapp">{b.whatsapp}</span></a></dd>
+        </div>
+        <div data-biz-if="supportHours" hidden={!b.supportHours}>
+          <dt>Hours</dt>
+          <dd data-biz="supportHours">{b.supportHours}</dd>
+        </div>
+        <div data-biz-if="street" hidden={!address.length}>
+          <dt>Office</dt>
+          <dd class="addr"><span data-biz="legalName">{b.legalName}</span><br />{address.join(', ')}</dd>
+        </div>
+        <div data-biz-if="gstin" hidden={!b.gstin}>
+          <dt>GSTIN</dt>
+          <dd data-biz="gstin">{b.gstin}</dd>
+        </div>
+      </dl>
+    </section>
+  </section>
+
+  <section class="container section help" aria-label="What we help with">
+    <ScreenCard title="A demo on your data" text="We walk through invoicing, returns and reports with your own products and customers." shot={{ src: SCREENS.invoiceEntry, alt: 'An invoice being entered' }} i={0} />
+    <ScreenCard title="Moving from Tally" text="Bring your ledgers, opening balances, stock and customers across, and check them against your trial balance." shot={{ src: SCREENS.trialBalance, alt: 'A trial balance' }} i={1} />
+    <ScreenCard title="Help after you buy" text="Questions about GST, e-invoicing or a report go to the same people who built OSuite." shot={{ src: SCREENS.gstr3b, alt: 'GSTR-3B summary' }} i={2} />
+  </section>
+
+  <script>
+    // Pick the plan named in the link (/contact?plan=business), and turn the form into an email.
+    const form = document.querySelector<HTMLFormElement>('[data-buy-form]');
+    const plan = new URLSearchParams(location.search).get('plan');
+    const select = document.querySelector<HTMLSelectElement>('[data-plan-select]');
+    if (plan && select && [...select.options].some((o) => o.value === plan)) select.value = plan;
+    form?.addEventListener('submit', (e) => {
+      const to = form.getAttribute('action') ?? '';
+      if (!to.startsWith('mailto:')) return;
+      e.preventDefault();
+      const f = new FormData(form);
+      const planName = select?.selectedOptions[0]?.text ?? String(f.get('plan'));
+      const subject = `Buy OSuite ${planName} (${f.get('cycle')}, ${f.get('where') === 'cloud' ? 'cloud' : 'desktop'})`;
+      const body = `Plan: ${planName}\nPay: ${f.get('cycle')}\nRuns: ${f.get('where') === 'cloud' ? 'in the cloud' : 'on our own PC'}\nCompany and GSTIN: ${f.get('company') || ''}\n`;
+      location.href = `${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    });
+    document.addEventListener('site:data', (e) => {
+      const b = (e as CustomEvent<{ business: Record<string, string> }>).detail.business;
+      const to = b.salesEmail || b.supportEmail;
+      if (form && to) form.setAttribute('action', `mailto:${to}`);
+    });
+  </script>
+</Page>
+
+<style>
+  .talk { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: var(--gutter); }
+  .buy, .ways { padding: clamp(1.75rem, 3.5vw, 4rem); border-radius: var(--r-card); }
+  .buy { background: var(--navy-deep); color: #fff; }
+  .ways { background: var(--surface); }
+  .buy h2, .ways h2 { margin-bottom: clamp(1.5rem, 3vw, 2.5rem); }
+  .buy-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; align-items: end; }
+  .buy-form label span { display: block; font-weight: 600; margin-bottom: 0.4rem; }
+  .buy-form .wide { grid-column: 1 / -1; }
+  .field { width: 100%; min-height: 3rem; padding: 0.7rem 0.9rem; background: #fff; color: var(--ink); border: 0; border-radius: 12px; font: inherit; }
+  .buy-form .button { justify-self: start; }
+  .form-note { grid-column: 1 / -1; max-width: 60ch; color: rgba(255, 255, 255, 0.78); }
+  .ways-list { margin: 0; display: grid; gap: 1.1rem; }
+  .ways-list > div { display: grid; grid-template-columns: 6.5rem 1fr; gap: 1rem; }
+  .ways-list > div[hidden] { display: none; }
+  .ways-list dt { color: var(--muted); }
+  .ways-list dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+  .ways-list .addr { font-weight: 400; }
+  .ways-list a { text-decoration: none; }
+  @media (hover: hover) and (pointer: fine) {
+    .ways-list a { text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 0.18em; transition: text-decoration-color var(--t-hover) ease; }
+    .ways-list a:hover { text-decoration-color: currentColor; }
+  }
+  .help { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gutter); }
+  @media (max-width: 63.99em) {
+    .talk { grid-template-columns: 1fr; }
+    .help { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 47.99em) {
+    .buy-form, .help { grid-template-columns: 1fr; }
+    .buy-form .button { width: 100%; justify-content: center; }
+    .ways-list > div { grid-template-columns: 1fr; gap: 0.15rem; }
+  }
+</style>

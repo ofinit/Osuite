@@ -1,0 +1,89 @@
+---
+// The top of every inner page, in the home page's manner: a two-line headline
+// across the full width, the pitch and actions under its end, and optionally
+// a real screen in a frame, half on white and half on the sage band.
+import { getImage, Image } from 'astro:assets';
+import type { Shot } from '../lib/features';
+
+interface Props {
+  lines: [string, string];
+  lead?: string;
+  /** e.g. "Last updated 15 October 2026" */
+  meta?: string;
+  shot?: Shot;
+  /** A screen recording; `shot` is its poster. */
+  video?: string;
+}
+const { lines, lead, meta, shot, video } = Astro.props;
+const poster = shot && video ? (await getImage({ src: shot.src, width: 1800, format: 'webp' })).src : undefined;
+---
+
+<section class="ph">
+  <div class="container ph-text">
+    <h1 class="display lines">
+      <span class="line"><span data-line>{lines[0]}</span></span>
+      <span class="line"><span data-line style="--i: 1">{lines[1]}</span></span>
+    </h1>
+    {
+      (lead || meta || Astro.slots.has('default')) && (
+        <div class="ph-side">
+          {lead && (
+            <p class="lead" data-rise style="--i: 3">
+              {lead}
+            </p>
+          )}
+          {meta && <p class="small muted ph-meta">{meta}</p>}
+          {Astro.slots.has('default') && (
+            <div class="ph-actions" data-rise style="--i: 4">
+              <slot />
+            </div>
+          )}
+        </div>
+      )
+    }
+  </div>
+  {
+    shot && (
+      <div class:list={['ph-band', { sheet: shot.sheet }]}>
+        <div class="container">
+          <div class="frame ph-media" data-rise style="--i: 5">
+            {video ? (
+              <video src={video} poster={poster} autoplay muted loop playsinline preload="metadata" aria-label={shot.alt} style={`object-position: ${shot.focus ?? '50% 0'}`} />
+            ) : (
+              <Image src={shot.src} alt={shot.alt} widths={[1200, 1800, 2600]} sizes="(max-width: 48em) 92vw, 80vw" loading="eager" style={`object-position: ${shot.focus ?? '50% 0'}`} />
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+</section>
+
+<script>
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) document.querySelectorAll<HTMLVideoElement>('.ph video[autoplay]').forEach((v) => v.pause());
+</script>
+
+<style>
+  .ph { padding-top: clamp(3rem, 7vw, 8rem); }
+  .ph:not(:has(.ph-band)) { padding-bottom: clamp(3rem, 6vw, 6rem); }
+  .ph-text { display: grid; gap: clamp(1.5rem, 3vw, 3rem); }
+  .ph-text h1 { white-space: nowrap; font-size: clamp(2.5rem, 0.6rem + 6.4vw, 9rem); }
+  /* The pitch runs under the headline's start, the actions finish the row. */
+  .ph-side { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 1.25rem var(--gutter); }
+  .ph-side .lead { grid-column: 1; max-width: 44ch; color: var(--muted); }
+  .ph-meta { grid-column: 1; }
+  .ph-actions { grid-column: 2; grid-row: 1 / span 2; justify-self: end; display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; max-width: 34rem; }
+  .ph-band { position: relative; isolation: isolate; margin-top: clamp(3rem, 6vw, 6rem); padding-bottom: clamp(3rem, 6vw, 6rem); }
+  .ph-band::before { content: ''; position: absolute; inset: 35% 0 0 0; z-index: -1; background: var(--surface); }
+  .ph-media img, .ph-media video { aspect-ratio: 16 / 9; object-fit: cover; }
+  .ph-band.sheet .ph-media { width: min(100%, 46rem); margin-inline: auto; }
+  .ph-band.sheet .ph-media img { aspect-ratio: auto; }
+  @media (max-width: 63.99em) {
+    .ph-side { grid-template-columns: 1fr; }
+    .ph-actions { grid-column: 1; grid-row: auto; justify-self: start; }
+  }
+  @media (max-width: 47.99em) {
+    .ph-text h1 { white-space: normal; font-size: 11vw; }
+    .ph-media img, .ph-media video { aspect-ratio: 4 / 3; }
+  }
+</style>

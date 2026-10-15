@@ -1,0 +1,77 @@
+---
+// A chapter: the claim and its explanation beside a real screen in a frame.
+// Without a screen, the text sits on a sage card across the width.
+import { Image } from 'astro:assets';
+import type { Shot } from '../lib/features';
+
+interface Props {
+  id: string;
+  title: string;
+  body: string[];
+  shot?: Shot;
+  flip?: boolean;
+}
+const { id, title, body, shot, flip = false } = Astro.props;
+---
+
+{
+  shot ? (
+    <section class:list={['split container', { flip, sheet: shot.sheet }]} aria-labelledby={id}>
+      <div class="split-text">
+        <h2 id={id} class="head" data-reveal>
+          {title}
+        </h2>
+        {body.map((p, i) => (
+          <p data-reveal style={`--i: ${i + 1}`}>
+            {p}
+          </p>
+        ))}
+      </div>
+      <div class="frame split-shot" data-reveal style="--i: 2">
+        <Image
+          src={shot.src}
+          alt={shot.alt}
+          widths={shot.sheet ? [700, 1100] : [1000, 1600, 2200]}
+          sizes={shot.sheet ? '(max-width: 48em) 92vw, 36vw' : '(max-width: 48em) 92vw, 56vw'}
+          style={`object-position: ${shot.focus ?? '50% 0'}`}
+        />
+      </div>
+    </section>
+  ) : (
+    <section class="note container" aria-labelledby={id}>
+      <h2 id={id} class="head" data-reveal>
+        {title}
+      </h2>
+      <div class="note-body">
+        {body.map((p, i) => (
+          <p data-reveal style={`--i: ${i + 1}`}>
+            {p}
+          </p>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+<style>
+  .split { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 7fr); gap: clamp(2rem, 5vw, 6rem); align-items: center; padding-block: calc(var(--section) / 2); }
+  .split.flip .split-text { order: 2; }
+  .split.flip { grid-template-columns: minmax(0, 7fr) minmax(0, 6fr); }
+  .split-text { display: grid; gap: 1rem; }
+  /* A step below the section heads: chapters sit beside a picture, and stay on two lines. */
+  .split h2, .note h2 { font-size: clamp(1.875rem, 1rem + 2.4vw, 4rem); }
+  .split-text h2 { margin-bottom: 0.5rem; max-width: 16ch; }
+  .split-text p { color: var(--muted); max-width: 46ch; }
+  .split-shot img { aspect-ratio: 16 / 10; object-fit: cover; }
+  .split.sheet { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+  .split.sheet.flip { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+  .split.sheet .split-shot img { aspect-ratio: auto; }
+  .note { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 5rem); padding: clamp(2rem, 4vw, 4.5rem); margin-block: calc(var(--section) / 4); border-radius: var(--r-card); background: var(--surface); }
+  .note-body { display: grid; gap: 1rem; align-content: start; }
+  .note-body p { max-width: 58ch; }
+  @media (max-width: 63.99em) {
+    .split, .split.flip, .split.sheet, .split.sheet.flip, .note { grid-template-columns: 1fr; }
+    .split.flip .split-text { order: 0; }
+    .split.sheet .split-shot { max-width: 34rem; }
+  }
+</style>

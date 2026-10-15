@@ -19,6 +19,7 @@ import type { AuthService, SetupInput } from '../services/auth.ts';
 import type { BackupService } from '../services/backup.ts';
 import type { EInvoiceService } from '../modules/einvoice/service.ts';
 import type { LicenseManager } from '../services/license.ts';
+import { createVendorInfo } from '../services/vendor.ts';
 import { RecordError, type RecordService } from '../services/records.ts';
 
 declare module 'fastify' {
@@ -81,6 +82,7 @@ function searchParams(q: Record<string, string>): SearchParams {
 
 export async function buildApp(deps: AppDeps) {
   const { cfg, auth, records, license } = deps;
+  const vendor = createVendorInfo(cfg);
   const app = Fastify({
     logger: { level: cfg.dev ? 'info' : 'warn' },
     bodyLimit: 5 * 1024 * 1024,
@@ -476,6 +478,12 @@ export async function buildApp(deps: AppDeps) {
   };
 
   app.get('/api/license', async () => ({ ...license.status(), fingerprint: license.fingerprint }));
+
+  // Plans and the seller's contact details, as set in the admin panel.
+  app.get('/api/vendor', async (req: Req) => {
+    requireUser(req);
+    return (await vendor.get()) ?? { business: null, plans: [], fetchedAt: null };
+  });
 
   app.post('/api/license/activate', async (req: Req) => {
     await licenseAdmin(req);

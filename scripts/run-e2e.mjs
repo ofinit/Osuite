@@ -18,6 +18,8 @@ const only = process.argv.slice(3);
 const ALL = [
   { file: 'e2e/walkthrough.mjs', services: [[ADMIN, {}], [SERVER, { OSUITE_WEB_DIST: join(root, 'apps/web/dist') }]] },
   { file: 'e2e/admin-walkthrough.mjs', services: [[ADMIN, { ADMIN_WEB_DIST: join(root, 'apps/admin-web/dist') }]] },
+  { file: 'e2e/site-data-api.mjs', services: [[ADMIN, {}], [SERVER, { OSUITE_LICENSE: 'off' }]] },
+  { file: 'e2e/site-ui.mjs', services: [[ADMIN, {}]] },
   { file: 'e2e/invoice-api.mjs', services: [[SERVER, { OSUITE_LICENSE: 'off' }]] },
   { file: 'e2e/quotation-api.mjs', services: [[SERVER, { OSUITE_LICENSE: 'off' }]] },
   { file: 'e2e/einvoice-api.mjs', services: [[SERVER, { OSUITE_LICENSE: 'off' }]] },
@@ -45,8 +47,10 @@ const ALL = [
   { file: 'e2e/backup-ui.mjs', services: [[SERVER, { OSUITE_LICENSE: 'off', OSUITE_WEB_DIST: join(root, 'apps/web/dist'), OSUITE_DATA_DIR: join(root, '.data/e2e-backup') }]] },
   { file: 'e2e/grid-stress.mjs', services: [[SERVER, { OSUITE_LICENSE: 'off', OSUITE_WEB_DIST: join(root, 'apps/web/dist') }]] },
   { file: 'e2e/invoice-ui.mjs', services: [[SERVER, { OSUITE_LICENSE: 'off', OSUITE_WEB_DIST: join(root, 'apps/web/dist') }]] },
+  { file: 'scripts/capture-screens.mjs', manual: true, services: [[SERVER, { OSUITE_LICENSE: 'off', OSUITE_WEB_DIST: join(root, 'apps/web/dist') }]] },
 ];
-const SUITES = only.length ? ALL.filter((s) => only.some((o) => s.file.includes(o))) : ALL;
+// Manual suites (e.g. capturing the website's product screenshots) run only when named.
+const SUITES = only.length ? ALL.filter((s) => only.some((o) => s.file.includes(o))) : ALL.filter((s) => !s.manual);
 
 function start(svc, env) {
   const log = join(root, '.data', `${svc.name}.log`);

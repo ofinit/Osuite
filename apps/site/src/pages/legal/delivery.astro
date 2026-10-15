@@ -1,0 +1,33 @@
+---
+import Biz from '../../components/Biz.astro';
+import Prose from '../../layouts/Prose.astro';
+import { siteData } from '../../lib/site';
+
+const { business: b } = await siteData();
+---
+
+<Prose
+  title={`Delivery policy | ${b.brandName}`}
+  description="How OSuite is delivered: a download and a licence key by email, with nothing shipped."
+  lines={['How it', 'arrives']}
+  standfirst="OSuite is software. Nothing is shipped: you download it, and your licence key arrives by email."
+  meta="Last updated 15 October 2026"
+>
+  <h2>The software</h2>
+  <p>The installer is downloaded from osuite.business. It works as a free trial for 14 days without any key.</p>
+
+  <h2>Your licence key</h2>
+  <p>
+    When a payment goes through, the licence key is emailed to the address you bought with, normally within minutes and always within one working
+    day. Enter it in OSuite under Licence to activate the plan you bought.
+  </p>
+
+  <h2>Cloud hosting</h2>
+  <p>If you buy cloud hosting, we set up your company’s address and send the sign-in details by email within two working days.</p>
+
+  <h2>If it does not arrive</h2>
+  <p>
+    Check your spam folder, then write to <Biz k="supportEmail" link="mailto" fallback="us" /> or call <Biz k="phone" link="tel" fallback="us" />.
+    We resend the key or fix the problem the same working day.
+  </p>
+</Prose>

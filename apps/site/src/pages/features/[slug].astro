@@ -1,0 +1,54 @@
+---
+import Page from '../../layouts/Page.astro';
+import PageHero from '../../components/PageHero.astro';
+import Split from '../../components/Split.astro';
+import ScreenCard from '../../components/ScreenCard.astro';
+import { FEATURES, type Feature } from '../../lib/features';
+import { siteData } from '../../lib/site';
+
+export function getStaticPaths() {
+  return FEATURES.map((f) => ({ params: { slug: f.slug }, props: { feature: f } }));
+}
+
+const { feature: f } = Astro.props as { feature: Feature };
+const { business: b } = await siteData();
+const others = FEATURES.filter((o) => o.slug !== f.slug).slice(0, 3);
+// Screens alternate sides, counting only the chapters that have one.
+let side = 0;
+---
+
+<Page title={`${f.name} | ${b.brandName}`} description={f.standfirst}>
+  <PageHero lines={f.title} lead={f.standfirst} shot={f.hero} video={f.video}>
+    <a class="button" href="/download">Start free trial<span class="btn-icon" aria-hidden="true">↓</span></a>
+    <a class="link-plain" href="/pricing">See prices</a>
+  </PageHero>
+
+  <div class="chapters">
+    {f.chapters.map((c, i) => <Split id={`c-${i}`} title={c.claim} body={c.body} shot={c.shot} flip={c.shot ? side++ % 2 === 1 : false} />)}
+  </div>
+
+  <section class="more section" aria-labelledby="more-title">
+    <div class="container">
+      <h2 id="more-title" class="head more-head" data-reveal>More in OSuite</h2>
+      <div class="more-grid">
+        {others.map((o, i) => <ScreenCard title={o.name} text={o.summary} shot={o.hero} href={`/features/${o.slug}`} i={i} />)}
+      </div>
+      <p class="more-all" data-reveal><a class="link-plain" href="/features">All {FEATURES.length} parts of OSuite</a></p>
+    </div>
+  </section>
+
+</Page>
+
+<style>
+  .chapters { padding-block: calc(var(--section) / 4); }
+  .more-head { margin-bottom: clamp(1.5rem, 3vw, 3rem); }
+  .more-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gutter); }
+  .more-all { margin-top: clamp(1.5rem, 2.5vw, 2.5rem); }
+  @media (max-width: 63.99em) {
+    .more-grid { grid-template-columns: 1fr 1fr; }
+    .more-grid > :last-child { display: none; }
+  }
+  @media (max-width: 47.99em) {
+    .more-grid { grid-template-columns: 1fr; }
+  }
+</style>

@@ -1,0 +1,86 @@
+---
+// A tax invoice computed with OSuite's own GST code (packages/kernel). Rendered
+// complete at build time; src/scripts/live-invoice.ts recalculates it when the
+// controls marked data-live change.
+import { amountInWords, computeGst, financialYear } from '@osuite/kernel';
+import { SAMPLE } from '../lib/sample';
+
+
+
+const today = new Date().toISOString().slice(0, 10);
+const number = `INV/${financialYear(today)}/0001`;
+const s = SAMPLE.start;
+const buyer = SAMPLE.buyers[s.buyer];
+const intra = s.buyer === SAMPLE.seller.state;
+const r = computeGst([{ qty: s.qty, unitPrice: s.rate, discountPct: s.discount, gstRate: s.gstRate }], { intraState: intra });
+const line = r.lines[0]!;
+const fmt = (v: string | number) => Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const date = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date());
+---
+
+<article class="inv" data-ui data-live-invoice aria-label="Sample tax invoice, recalculated as you change the controls">
+  <header class="inv-head">
+    <div>
+      <p class="inv-seller">{SAMPLE.seller.name}</p>
+      <p>{SAMPLE.seller.place}</p>
+      <p>GSTIN {SAMPLE.seller.gstin}</p>
+    </div>
+    <div class="inv-title">
+      <p>Tax Invoice</p>
+      <p data-out="number">{number}</p>
+      <p>{date}</p>
+    </div>
+  </header>
+  <div class="inv-to">
+    <p class="inv-label">Bill to</p>
+    <p class="inv-buyer" data-out="buyer">{buyer.name}</p>
+    <p data-out="buyer-place">{buyer.place}, {buyer.state}</p>
+    <p>Place of supply <span data-out="pos">{buyer.state} ({s.buyer})</span></p>
+  </div>
+  <table class="inv-lines">
+    <thead>
+      <tr><th>Item</th><th>HSN</th><th class="n">Qty</th><th class="n">Rate</th><th class="n">Taxable</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{SAMPLE.item.description}<span class="inv-disc" data-out="disc-note" hidden={s.discount === '0'}> less {s.discount}%</span></td>
+        <td>{SAMPLE.item.hsn}</td>
+        <td class="n" data-out="qty">{Number(s.qty).toLocaleString('en-IN')} {SAMPLE.item.uom}</td>
+        <td class="n" data-out="rate">{fmt(s.rate)}</td>
+        <td class="n" data-out="taxable">{fmt(line.taxable)}</td>
+      </tr>
+    </tbody>
+  </table>
+  <dl class="inv-sum">
+    <div><dt>Taxable value</dt><dd data-out="t-taxable">{fmt(r.taxable)}</dd></div>
+    <div data-out="row-cgst" hidden={!intra}><dt>CGST <span data-out="half-rate">{Number(s.gstRate) / 2}</span>%</dt><dd data-out="cgst">{fmt(r.cgst)}</dd></div>
+    <div data-out="row-sgst" hidden={!intra}><dt>SGST <span data-out="half-rate2">{Number(s.gstRate) / 2}</span>%</dt><dd data-out="sgst">{fmt(r.sgst)}</dd></div>
+    <div data-out="row-igst" hidden={intra}><dt>IGST <span data-out="full-rate">{s.gstRate}</span>%</dt><dd data-out="igst">{fmt(r.igst)}</dd></div>
+    <div data-out="row-round" hidden={Number(r.roundOff) === 0}><dt>Round off</dt><dd data-out="round">{fmt(r.roundOff)}</dd></div>
+    <div class="inv-total"><dt>Total</dt><dd>₹<span data-out="total">{fmt(r.total)}</span></dd></div>
+  </dl>
+  <p class="inv-words"><span data-out="words">{amountInWords(r.total)}</span></p>
+</article>
+
+<style>
+  .inv { width: min(26.25rem, 100%); background: #fff; color: #0b0d12; padding: 1.5rem 1.4rem 1.25rem; font-family: var(--font-display); font-size: 0.8125rem; line-height: 1.35; letter-spacing: 0; }
+  .inv p { max-width: none; margin: 0; }
+  .inv-head { display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 0.75rem; border-bottom: 2px solid #0b0d12; }
+  .inv-seller { font-size: 0.9375rem; }
+  .inv-title { text-align: right; }
+  .inv-title p:first-child { font-size: 0.9375rem; text-transform: uppercase; letter-spacing: 0.02em; }
+  .inv-to { padding: 0.75rem 0; }
+  .inv-label { color: #545a63; }
+  .inv-buyer { font-size: 0.9375rem; }
+  .inv-lines { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .inv-lines th { text-align: left; font-weight: 700; border-bottom: 1px solid #0b0d12; padding: 0.3rem 0.25rem 0.3rem 0; }
+  .inv-lines td { padding: 0.45rem 0.25rem 0.45rem 0; vertical-align: top; border-bottom: 1px solid #cfd4dd; }
+  .inv-lines .n { text-align: right; padding-right: 0; padding-left: 0.4rem; white-space: nowrap; }
+  .inv-disc { color: #545a63; }
+  .inv-sum { margin: 0.75rem 0 0 auto; width: 15rem; font-variant-numeric: tabular-nums; }
+  .inv-sum div { display: flex; justify-content: space-between; padding: 0.12rem 0; }
+  .inv-sum dd { margin: 0; }
+  .inv-total { margin-top: 0.35rem; padding-top: 0.4rem !important; border-top: 2px solid #0b0d12; font-size: 1.125rem; }
+  /* taste-skill-ignore: rule inside the printed invoice (data-ui) */
+  .inv-words { margin-top: 0.9rem !important; padding-top: 0.6rem; border-top: 1px solid #cfd4dd; font-family: var(--font-text); font-style: italic; }
+</style>

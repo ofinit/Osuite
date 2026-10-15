@@ -6,6 +6,8 @@ _docs
 apps/desktop
 apps/server
 apps/web
+apps/site/dist
+apps/site/.astro
 e2e
 **/*.log
 **/.env

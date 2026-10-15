@@ -1,0 +1,106 @@
+---
+import Page from '../layouts/Page.astro';
+import PageHero from '../components/PageHero.astro';
+import ScreenCard from '../components/ScreenCard.astro';
+import { SCREENS } from '../lib/features';
+import { siteData } from '../lib/site';
+
+const { business: b } = await siteData();
+const ready = !!b.downloadUrl;
+const steps = [
+  ['Start the trial', 'Open OSuite and enter your name, email and company. The 14 days start now; no card is needed.'],
+  ['Set up your company', 'Your GSTIN, state and address; your bank details and UPI ID to print on invoices; your logo if you have one.'],
+  ['Add what you sell', 'Products with HSN codes and GST rates, customers with their GSTINs, and your opening stock and balances.'],
+  ['Turn on daily backups', 'Choose a second folder, such as a USB disk or a OneDrive folder, and OSuite copies every backup there.'],
+];
+---
+
+<Page title={`Download ${b.brandName} for Windows`} description="Download the OSuite installer for Windows and try every feature free for 14 days. Your data stays on your PC.">
+  <PageHero
+    lines={['Free for', '14 days']}
+    lead="One installer for Windows. OSuite brings its own database, so there is nothing else to set up, and your books stay on your PC."
+    shot={{ src: SCREENS.invoiceEntry, alt: 'OSuite on Windows: a new invoice with GST worked out as you type', focus: '30% 0' }}
+    video="/media/invoice-entry.webm"
+  >
+    <a class="button" href={ready ? b.downloadUrl : '/contact'} data-biz-href="url:downloadUrl" data-download>
+      <span data-download-label>{ready ? 'Download for Windows' : 'Ask for the installer'}</span><span class="btn-icon" aria-hidden="true">↓</span>
+    </a>
+    <p class="small muted dl-meta">
+      <span data-biz-if="downloadVersion" hidden={!b.downloadVersion}>Version <span data-biz="downloadVersion">{b.downloadVersion}</span> · </span>
+      <span data-biz-if="downloadSize" hidden={!b.downloadSize}><span data-biz="downloadSize">{b.downloadSize}</span> · </span>
+      Windows 10 or 11, 64-bit
+    </p>
+  </PageHero>
+
+  <script>
+    // A download link published in the admin panel after this page was built.
+    document.addEventListener('site:data', (e) => {
+      const url = (e as CustomEvent<{ business: Record<string, string> }>).detail.business.downloadUrl;
+      const a = document.querySelector<HTMLAnchorElement>('[data-download]');
+      const label = a?.querySelector('[data-download-label]');
+      if (url && a && label) {
+        a.href = url;
+        label.textContent = 'Download for Windows';
+      }
+    });
+  </script>
+
+  <section class="section" aria-labelledby="after-title">
+    <div class="container">
+      <h2 id="after-title" class="head after-head" data-reveal>After you install</h2>
+      <ol class="after">
+        {
+          steps.map(([t, p], i) => (
+            <li data-reveal style={`--i: ${i}`}>
+              <span class="after-n nums" aria-hidden="true">{i + 1}</span>
+              <h3>{t}</h3>
+              <p>{p}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <section class="section needs-wrap" aria-labelledby="needs-title">
+    <div class="container needs-grid">
+      <div class="needs" data-reveal>
+        <h2 id="needs-title" class="head">What it needs</h2>
+        <dl class="needs-list">
+          <div><dt>Windows</dt><dd>Windows 10 or 11, 64-bit</dd></div>
+          <div><dt>Memory</dt><dd>4 GB or more</dd></div>
+          <div><dt>Disk</dt><dd>1 GB for OSuite, plus room for your data and backups</dd></div>
+          <div><dt>Internet</dt><dd>Only to start the trial, and for a moment every 14 days to renew the licence</dd></div>
+          <div><dt>Screen</dt><dd>1366 × 768 or larger</dd></div>
+        </dl>
+      </div>
+      <ScreenCard title="Backups from day one" text="Every night, with a copy in a second folder you choose." shot={{ src: SCREENS.backups, alt: 'Daily backups with a second folder' }} i={1} />
+    </div>
+  </section>
+</Page>
+
+<style>
+  .dl-meta { flex-basis: 100%; }
+  .after-head { margin-bottom: clamp(1.5rem, 3vw, 3rem); }
+  .after { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gutter); }
+  .after li { display: grid; align-content: start; gap: 0.6rem; }
+  .after-n { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; margin-bottom: 0.75rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .after h3 { font-weight: 600; font-size: var(--step-lead); letter-spacing: -0.02em; line-height: 1.15; }
+  .after p { color: var(--muted); max-width: 34ch; }
+  .needs-wrap { padding-top: 0; }
+  .needs-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: var(--gutter); }
+  .needs { padding: clamp(1.75rem, 3.5vw, 4rem); border-radius: var(--r-card); background: var(--navy-deep); color: #fff; }
+  .needs h2 { margin-bottom: clamp(1.5rem, 3vw, 2.5rem); }
+  .needs-list { display: grid; gap: 1rem; margin: 0; }
+  .needs-list > div { display: grid; grid-template-columns: 8rem 1fr; gap: 1rem; }
+  .needs-list dt { font-weight: 600; }
+  .needs-list dd { margin: 0; max-width: 46ch; color: rgba(255, 255, 255, 0.82); }
+  @media (max-width: 63.99em) {
+    .after { grid-template-columns: 1fr 1fr; row-gap: 2.5rem; }
+    .needs-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 47.99em) {
+    .after { grid-template-columns: 1fr; }
+    .needs-list > div { grid-template-columns: 1fr; gap: 0.2rem; }
+  }
+</style>

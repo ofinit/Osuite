@@ -1,0 +1,74 @@
+---
+import Biz from '../../components/Biz.astro';
+import Prose from '../../layouts/Prose.astro';
+import { siteData } from '../../lib/site';
+
+const { business: b } = await siteData();
+---
+
+<Prose
+  title={`Terms of service | ${b.brandName}`}
+  description="The terms for using OSuite, buying a subscription and using osuite.business."
+  lines={['Terms of', 'service']}
+  standfirst="The agreement between you and us when you use OSuite or buy a plan."
+  meta="Last updated 15 October 2026"
+>
+  <h2>The agreement</h2>
+  <p>
+    These terms are between you (the business using OSuite) and <Biz k="legalName" fallback="OfinIT" />. By installing OSuite, starting a trial or
+    buying a plan you accept them, together with the <a href="/legal/eula">licence agreement</a>, the <a href="/legal/privacy">privacy policy</a>
+    and the <a href="/legal/refunds">refund policy</a>.
+  </p>
+
+  <h2>Subscriptions</h2>
+  <ul>
+    <li>A plan gives the number of users shown on the <a href="/pricing">pricing page</a>, for the period you pay for, monthly or yearly.</li>
+    <li>Prices are in Indian rupees. <span data-biz="gstNote">{b.gstNote || 'Prices exclude 18% GST'}</span>; we issue a GST tax invoice for every payment.</li>
+    <li>Plans renew only when you pay for the next period. If a period ends unpaid, OSuite gives 7 days’ grace and then turns read-only.</li>
+    <li>We may change prices for future periods; a change never applies to a period already paid for, and we tell you at least 30 days ahead.</li>
+  </ul>
+
+  <h2>Your data</h2>
+  <p>
+    Your business data belongs to you. On the desktop edition it stays on your computer, and you are responsible for keeping backups; OSuite helps
+    with daily backups and copies to a second folder. With cloud hosting we keep your data and backups on your behalf and return them on request.
+  </p>
+
+  <h2>Tax and accounting</h2>
+  <p>
+    OSuite calculates GST and prepares returns from what you enter. You remain responsible for your tax filings and the accuracy of your entries;
+    please have your accountant review your returns. E-invoicing through the government portal depends on the portal and on our GST Suvidha
+    Provider being available.
+  </p>
+
+  <h2>Use</h2>
+  <p>
+    Use OSuite only for lawful business. Do not copy, resell, reverse engineer or try to bypass the licence, except where the law allows.
+  </p>
+
+  <h2>Support and changes</h2>
+  <p>
+    We provide support by email<span data-biz-if="phone" hidden={!b.phone}> and phone</span> during <Biz k="supportHours" fallback="working hours" />.
+    We improve OSuite over time; updates are included in your plan.
+  </p>
+
+  <h2>Liability</h2>
+  <p>
+    OSuite is provided with care but without a promise that it is free of every error. To the extent the law allows, our total liability for any
+    claim is limited to the amount you paid us in the twelve months before it, and we are not liable for indirect losses such as lost profit or
+    data you did not back up.
+  </p>
+
+  <h2>Ending</h2>
+  <p>
+    You can stop at any time; see the refund policy. We may suspend a licence that is used in breach of these terms, after telling you why.
+  </p>
+
+  <h2>Law and disputes</h2>
+  <p>These terms are governed by the laws of India. Disputes are subject to the courts of <Biz k="city" fallback="our registered city" />.</p>
+
+  <h2>Contact</h2>
+  <p>
+    <Biz k="legalName" fallback="OfinIT" />, <Biz k="street" /> <Biz k="city" /> <Biz k="pincode" />. Email <Biz k="supportEmail" link="mailto" />.
+  </p>
+</Prose>

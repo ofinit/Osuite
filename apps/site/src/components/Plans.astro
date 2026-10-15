@@ -1,0 +1,113 @@
+---
+// The plans on sale, as set in the admin panel: one card per plan, the
+// recommended one in navy. Every value refreshes in the browser (live-data.ts);
+// a plan taken off sale disappears.
+import { paidPlans, rupees, type SiteData } from '../lib/site';
+
+interface Props {
+  data: SiteData;
+  headingId?: string;
+  heading?: string;
+  /** Show the heading (pages with their own title hide it visually). */
+  showHeading?: boolean;
+}
+const { data, headingId = 'plans-title', heading = 'Plans and prices', showHeading = true } = Astro.props;
+const b = data.business;
+const plans = paidPlans(data);
+// The recommended plan: the middle one of three, or the second of two or four.
+const recommended = plans[Math.min(1, plans.length - 1)]?.id;
+const DEFAULT_INCLUDES = 'Invoicing, quotations, GST returns, e-invoicing, stock, banking, reports and daily backups.';
+---
+
+<div class="plans">
+  <div class="plans-top">
+    <h2 id={headingId} class:list={['head', { 'sr-only': !showHeading }]}>{heading}</h2>
+    <p class="muted plans-note">
+      <span data-biz="gstNote">{b.gstNote || 'Prices exclude 18% GST'}</span>. Every feature in every plan. Try any of them free for 14 days.
+    </p>
+  </div>
+  {
+    plans.length > 0 ? (
+      <div class="cards" style={`--n: ${plans.length}`}>
+        {plans.map((p, i) => (
+          <article class:list={['card', { rec: p.id === recommended }]} data-plan-col={p.id} data-reveal style={`--i: ${i}`}>
+            <h3 class="name" data-plan={p.id} data-plan-field="name">
+              {p.name}
+            </h3>
+
+            <p class="price nums">
+              <span data-plan={p.id} data-plan-field="priceYearly">{rupees(p.priceYearly)}</span>
+              <span class="per">a year</span>
+            </p>
+            <p class="alt nums">
+              or <span data-plan={p.id} data-plan-field="priceMonthly">{rupees(p.priceMonthly)}</span> a month
+            </p>
+            <p class="who" data-plan={p.id} data-plan-field="tagline">
+              {p.tagline || `For up to ${p.seats} ${p.seats === 1 ? 'user' : 'users'}.`}
+            </p>
+            <a class:list={['button', { 'on-dark': p.id === recommended }]} href={`/contact?plan=${p.id}`}>
+              Buy {p.name}
+            </a>
+            <dl class="facts">
+              <div>
+                <dt>Users</dt>
+                <dd class="nums" data-plan={p.id} data-plan-field="seats">{p.seats}</dd>
+              </div>
+              <div>
+                <dt>In the cloud</dt>
+                <dd class="nums">
+                  {Number(p.cloudAddonMonthly) > 0 ? (
+                    <>
+                      + <span data-plan={p.id} data-plan-field="cloudAddonMonthly">{rupees(p.cloudAddonMonthly)}</span> a month
+                    </>
+                  ) : (
+                    'Desktop only'
+                  )}
+                </dd>
+              </div>
+            </dl>
+            <p class="includes" data-plan={p.id} data-plan-field="includes">
+              {p.includes || DEFAULT_INCLUDES}
+            </p>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <p class="lead">
+        Prices are being updated. <a class="link-plain" href="/contact">Ask us</a> for a quote, or start the free trial.
+      </p>
+    )
+  }
+  <p class="trial muted">
+    Not sure yet? <a class="link-plain" href="/download">Start the free trial</a>: every feature, 14 days, no card.
+  </p>
+</div>
+
+<style>
+  .plans-top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem 3rem; margin-bottom: clamp(2rem, 4vw, 3.5rem); }
+  .plans-note { max-width: 44ch; }
+  .cards { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: var(--gutter); align-items: stretch; }
+  .card { display: grid; align-content: start; padding: clamp(1.5rem, 2.6vw, 2.75rem); border-radius: var(--r-card); background: var(--surface); }
+  .card.rec { background: var(--accent); color: #fff; }
+  .name { font-size: var(--step-lead); font-weight: 600; letter-spacing: -0.02em; }
+  .who { margin-top: 1rem; min-height: 3.1em; color: var(--muted); }
+  .rec .who { color: #d6def2; }
+  .price { margin-top: clamp(1.5rem, 3vw, 2.5rem); font-family: var(--font-display); font-weight: 600; font-size: var(--step-head); line-height: 1; letter-spacing: -0.045em; display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+  .per { font-size: var(--step-small); font-weight: 500; letter-spacing: 0; color: var(--muted); }
+  .rec .per { color: #d6def2; }
+  .alt { margin-top: 0.5rem; color: var(--muted); }
+  .rec .alt { color: #d6def2; }
+  .card .button { margin-top: clamp(1.5rem, 2.5vw, 2rem); justify-self: start; }
+  .facts { margin-top: clamp(1.5rem, 2.5vw, 2rem); display: grid; gap: 0.6rem; }
+  .facts div { display: flex; justify-content: space-between; gap: 1rem; }
+  .facts dt { color: var(--muted); }
+  .rec .facts dt { color: #d6def2; }
+  .facts dd { font-weight: 500; text-align: right; }
+  .includes { margin-top: 1.25rem; color: var(--ink); }
+  .includes::before { content: ''; display: block; width: 2.5rem; height: 2px; margin-bottom: 1.25rem; background: currentColor; opacity: 0.4; }
+  .rec .includes { color: #fff; }
+  .trial { margin-top: clamp(1.5rem, 3vw, 2.5rem); max-width: none; }
+  @media (max-width: 63.99em) {
+    .cards { grid-template-columns: 1fr; max-width: 40rem; }
+  }
+</style>

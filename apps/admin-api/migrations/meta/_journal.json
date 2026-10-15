@@ -15,6 +15,13 @@
       "when": 1791971962217,
       "tag": "0001_staff",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792072697986,
+      "tag": "0002_site_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,30 @@
+---
+import Page from '../../layouts/Page.astro';
+import PageHero from '../../components/PageHero.astro';
+import ScreenCard from '../../components/ScreenCard.astro';
+import { FEATURES } from '../../lib/features';
+import { siteData } from '../../lib/site';
+
+const { business: b } = await siteData();
+---
+
+<Page title={`What ${b.brandName} does`} description="Invoicing, GST returns, e-invoicing, purchases, inventory, receivables, banking, accounting and the dashboard: everything in OSuite, with real screens.">
+  <PageHero lines={['One book,', 'every task']} shot={FEATURES[0].hero} video={FEATURES[0].video} lead="Everything below is in every plan, on your own PC or in the cloud. The screens are the real software, filled with a fictitious company.">
+    <a class="button" href="/download">Start free trial<span class="btn-icon" aria-hidden="true">↓</span></a>
+    <a class="link-plain" href="/pricing">See prices</a>
+  </PageHero>
+
+  <section class="container index" aria-label="Features">
+    {FEATURES.map((f, i) => <ScreenCard title={f.name} text={f.summary} shot={f.hero} href={`/features/${f.slug}`} i={i} />)}
+  </section>
+</Page>
+
+<style>
+  .index { display: grid; padding-top: calc(var(--section) / 4); grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gutter); padding-bottom: var(--section); }
+  @media (max-width: 63.99em) {
+    .index { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 47.99em) {
+    .index { grid-template-columns: 1fr; }
+  }
+</style>

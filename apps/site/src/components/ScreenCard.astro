@@ -1,0 +1,44 @@
+---
+// A card holding a real screen, cropped past the app's sidebar so its content
+// reads; the same cell as the home page's bento. Optionally a link.
+import { Image } from 'astro:assets';
+import type { Shot } from '../lib/features';
+
+interface Props {
+  title: string;
+  text?: string;
+  shot: Shot;
+  href?: string;
+  /** Zoom into the screen; 1 shows it whole. Printed sheets are never zoomed. */
+  zoom?: number;
+  i?: number;
+}
+const { title, text, shot, href, zoom = 1.55, i = 0 } = Astro.props;
+const Tag = href ? 'a' : 'div';
+const z = shot.sheet ? 1 : zoom;
+---
+
+<Tag class:list={['sc', { sheet: shot.sheet }]} href={href} data-reveal style={`--i: ${i % 3}; --zoom: ${z}`}>
+  <span class="sc-text">
+    <h3 class="sc-title">{title}</h3>
+    {text && <p class="sc-sub">{text}</p>}
+  </span>
+  <span class="sc-shot">
+    <Image src={shot.src} alt={href ? '' : shot.alt} widths={[700, 1200]} sizes="(max-width: 48em) 92vw, 34vw" />
+  </span>
+</Tag>
+
+<style>
+  .sc { display: flex; flex-direction: column; min-height: clamp(18rem, 24vw, 28rem); overflow: hidden; border-radius: var(--r-card); background: var(--surface); text-decoration: none; transition: background-color var(--t-hover) var(--ease-soft); }
+  .sc-text { display: grid; gap: 0.35rem; padding: clamp(1.25rem, 2.2vw, 2.25rem) clamp(1.25rem, 2.2vw, 2.25rem) 0; }
+  .sc-title { font-weight: 600; font-size: var(--step-lead); letter-spacing: -0.02em; line-height: 1.15; }
+  .sc-sub { color: var(--muted); max-width: 40ch; }
+  .sc-shot { display: block; flex: 1; position: relative; margin: clamp(1rem, 2vw, 2rem) 0 0 clamp(1.25rem, 2.2vw, 2.25rem); border-radius: 14px 0 0 0; overflow: hidden; background: #fff; min-height: 10rem; }
+  .sc-shot img { position: absolute; top: 0; left: calc(var(--zoom) * -16%); width: calc(var(--zoom) * 100%); max-width: none; height: auto; transition: transform 900ms var(--ease-soft); transform-origin: 30% 0; }
+  .sc.sheet .sc-shot { margin-right: clamp(1.25rem, 2.2vw, 2.25rem); border-radius: 14px 14px 0 0; }
+  .sc.sheet .sc-shot img { left: 0; }
+  @media (hover: hover) and (pointer: fine) {
+    a.sc:hover { background: var(--surface-2); }
+    a.sc:hover .sc-shot img { transform: scale(1.03); }
+  }
+</style>

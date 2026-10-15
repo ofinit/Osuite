@@ -1,0 +1,27 @@
+---
+// One business detail from the admin panel, refreshed in the browser.
+// <Biz k="legalName" /> prints the value, or the fallback when it is empty.
+import { siteData } from '../lib/site';
+
+interface Props {
+  k: string;
+  fallback?: string;
+  /** Render as a link: mailto, tel or wa. */
+  link?: 'mailto' | 'tel' | 'wa';
+}
+const { k, fallback = '', link } = Astro.props;
+const { business } = await siteData();
+const v = business[k] || fallback;
+const href =
+  link === 'mailto' ? `mailto:${v}` : link === 'tel' ? `tel:${v.replace(/[^\d+]/g, '')}` : link === 'wa' ? `https://wa.me/${v.replace(/\D/g, '')}` : undefined;
+---
+
+{
+  link && v ? (
+    <a href={href} data-biz-href={`${link}:${k}`}>
+      <span data-biz={k}>{v}</span>
+    </a>
+  ) : (
+    <span data-biz={k}>{v}</span>
+  )
+}

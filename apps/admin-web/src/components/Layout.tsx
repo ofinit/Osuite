@@ -1,7 +1,7 @@
 import { BrandMark } from '@osuite/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { CreditCard, Gauge, KeyRound, LogOut, Menu, Settings, Users, UsersRound, type LucideIcon } from 'lucide-react';
+import { Building2, CreditCard, Gauge, KeyRound, LogOut, Menu, Settings, Users, UsersRound, type LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { api, type StaffUser } from '../api.ts';
@@ -37,6 +37,7 @@ export function Layout({ me }: { me: StaffUser }) {
           <Item to="/licenses" icon={KeyRound} label="Licences" />
           <Item to="/customers" icon={Users} label="Customers" />
           <Item to="/plans" icon={CreditCard} label="Plans" />
+          <Item to="/business" icon={Building2} label="Business details" />
           {me.role === 'owner' && <Item to="/team" icon={UsersRound} label="Team" />}
         </nav>
         <div className="border-t border-rule px-2 py-2">

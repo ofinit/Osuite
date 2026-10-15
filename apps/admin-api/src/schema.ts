@@ -23,6 +23,12 @@ export const plans = pgTable('plans', {
   /** Extra monthly charge when the customer's data is hosted by us. */
   cloudAddonMonthly: numeric('cloud_addon_monthly', { precision: 12, scale: 2 }).notNull().default('0'),
   active: boolean('active').notNull().default(true),
+  /** Shown on the website: who the plan is for, in one sentence. */
+  tagline: varchar('tagline', { length: 200 }).notNull().default(''),
+  /** Shown on the website: what is included, as a short paragraph. */
+  includes: varchar('includes', { length: 1000 }).notNull().default(''),
+  /** Order on the website and in the admin panel. */
+  sortOrder: integer('sort_order').notNull().default(0),
 });
 
 export const customers = pgTable('customers', {
@@ -140,3 +146,10 @@ export const adminEvents = pgTable(
   },
   (t) => [index('admin_events_license_idx').on(t.licenseId), index('admin_events_customer_idx').on(t.customerId)],
 );
+
+/** Key-value settings edited in the admin panel (e.g. the business profile shown on the website). */
+export const settings = pgTable('settings', {
+  key: varchar('key', { length: 60 }).primaryKey(),
+  value: jsonb('value').$type<Record<string, unknown>>().notNull(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});

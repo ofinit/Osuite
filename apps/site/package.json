@@ -1,0 +1,18 @@
+{
+  "name": "@osuite/site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --port 4321",
+    "build": "astro build",
+    "preview": "astro preview --port 4321",
+    "typecheck": "tsc -p tsconfig.check.json"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "3.7.4",
+    "@osuite/kernel": "workspace:*",
+    "astro": "7.3.5",
+    "sharp": "0.35.5"
+  }
+}

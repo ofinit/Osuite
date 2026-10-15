@@ -1,4 +1,5 @@
 // Staff-facing API used by the admin web app. All routes need a staff session.
+import { BUSINESS_FIELDS, getBusiness, saveBusiness } from './business.ts';
 import { pgError } from '@osuite/server-kit';
 import { and, desc, eq, gt, ilike, isNull, lt, or, sql, type SQL } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -358,7 +359,7 @@ export async function adminRoutes(app: FastifyInstance, deps: { db: Db; licensin
   });
 
   // ------------------------------------------------------------- plans
-  app.get('/admin/plans', async () => db.select().from(plans).orderBy(plans.priceMonthly));
+  app.get('/admin/plans', async () => db.select().from(plans).orderBy(plans.sortOrder, plans.priceMonthly));
 
   app.patch('/admin/plans/:id', async (req) => {
     requireOwner(req);
@@ -380,10 +381,30 @@ export async function adminRoutes(app: FastifyInstance, deps: { db: Db; licensin
     if (b.priceYearly !== undefined) set.priceYearly = money(b.priceYearly, 'Yearly price');
     if (b.cloudAddonMonthly !== undefined) set.cloudAddonMonthly = money(b.cloudAddonMonthly, 'Cloud add-on');
     if (b.active !== undefined) set.active = !!b.active;
+    if (b.tagline !== undefined) set.tagline = String(b.tagline).trim().slice(0, 200);
+    if (b.includes !== undefined) set.includes = String(b.includes).trim().slice(0, 1000);
+    if (b.sortOrder !== undefined) {
+      const n = Number(b.sortOrder);
+      if (!Number.isInteger(n) || n < 0 || n > 99) throw new HttpError(400, 'Order must be a whole number from 0 to 99');
+      set.sortOrder = n;
+    }
     const [p] = await db.update(plans).set(set).where(eq(plans.id, id)).returning();
     if (!p) throw new HttpError(404, 'Plan not found');
     await record(req, 'plan.updated', {}, { plan: p.name, ...set });
     return p;
+  });
+
+  // ------------------------------------------------------------- business profile
+  // Shown on the website, the legal pages and in the apps (via GET /v1/site).
+  app.get('/admin/business', async () => ({ fields: BUSINESS_FIELDS, values: await getBusiness(db) }));
+
+  app.put('/admin/business', async (req) => {
+    requireOwner(req);
+    const before = await getBusiness(db);
+    const saved = await saveBusiness(db, (req.body ?? {}) as Body);
+    const changed = Object.fromEntries(Object.entries(saved).filter(([k, v]) => before[k as keyof typeof before] !== v));
+    await record(req, 'business.updated', {}, changed);
+    return saved;
   });
 
   // ------------------------------------------------------------- staff

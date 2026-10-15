@@ -4,6 +4,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public fieldErrors: Record<string, string> = {},
   ) {
     super(message);
   }
@@ -22,7 +23,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     throw new ApiError(0, 'Cannot reach the admin server.');
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(res.status, data.error ?? `Request failed (${res.status})`);
+  if (!res.ok) throw new ApiError(res.status, data.error ?? `Request failed (${res.status})`, data.fieldErrors ?? {});
   return data as T;
 }
 
@@ -62,6 +63,14 @@ export interface Plan {
   priceYearly: string;
   cloudAddonMonthly: string;
   active: boolean;
+  tagline: string;
+  includes: string;
+  sortOrder: number;
+}
+
+export interface BusinessForm {
+  fields: Record<string, { label: string; max: number; required?: boolean }>;
+  values: Record<string, string>;
 }
 
 export interface Customer {
@@ -172,6 +181,8 @@ export const api = {
 
   plans: () => request<Plan[]>('GET', '/plans'),
   updatePlan: (id: string, b: Partial<Plan>) => request<Plan>('PATCH', `/plans/${id}`, b),
+  business: () => request<BusinessForm>('GET', '/business'),
+  saveBusiness: (v: Record<string, string>) => request<Record<string, string>>('PUT', '/business', v),
 
   staff: () => request<StaffRow[]>('GET', '/staff'),
   createStaff: (b: { name: string; email: string; password: string; role: 'owner' | 'staff' }) => request('POST', '/staff', b),

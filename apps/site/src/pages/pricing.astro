@@ -1,0 +1,51 @@
+---
+import Plans from '../components/Plans.astro';
+import Page from '../layouts/Page.astro';
+import PageHero from '../components/PageHero.astro';
+import Faq from '../components/Faq.astro';
+import ScreenCard from '../components/ScreenCard.astro';
+import { FEATURES } from '../lib/features';
+import { siteData, trialPlan } from '../lib/site';
+
+const data = await siteData();
+const b = data.business;
+const trial = trialPlan(data);
+const questions: [string, string][] = [
+  ['Are prices with or without GST?', `${b.gstNote || 'Prices exclude 18% GST'}. You get a GST tax invoice for every payment, with your GSTIN on it, so you can claim the input credit.`],
+  ['Monthly or yearly?', 'Either. Yearly costs less than twelve months. You can move from monthly to yearly at renewal.'],
+  ['How do I pay?', 'Tell us the plan and we send a secure payment link for UPI, cards or net banking. Your licence key arrives by email as soon as the payment goes through.'],
+  ['What does the trial include?', `Every feature for 14 days on one computer${trial ? `, for up to ${trial.seats} users` : ''}, with no card. Everything you enter in the trial stays when you buy.`],
+  ['Can I change plans?', 'Yes. Moving up takes effect at once; moving down applies from the next renewal.'],
+  ['What is the cloud charge for?', 'We host OSuite for you, with backups, so it opens in a browser from anywhere. Without it, OSuite runs on your own PC at no extra cost.'],
+  ['What if I need more users?', 'Move to the next plan, or ask us for a plan that fits. Each user has their own login.'],
+  ['Can I get a refund?', `Yes, within ${b.refundDays || 14} days of buying if OSuite is not for you. See the refund policy.`],
+];
+---
+
+<Page title={`Pricing | ${b.brandName}`} description="OSuite plans and prices in rupees: yearly or monthly, on your own PC or in the cloud, with a 14-day free trial.">
+  <PageHero lines={['Plans and', 'prices']} lead="One price per plan, every feature in each. Pay yearly or monthly; add cloud hosting if you want it." />
+
+  <section class="plans-wrap" aria-labelledby="plans-title">
+    <div class="container">
+      <Plans data={data} heading="Choose a plan" showHeading={false} />
+    </div>
+  </section>
+
+  <section class="included section" aria-labelledby="included-title">
+    <div class="container">
+      <h2 id="included-title" class="head inc-head" data-reveal>In every plan</h2>
+      <div class="card-row">
+        {FEATURES.map((f, i) => <ScreenCard title={f.name} text={f.summary} shot={f.hero} href={`/features/${f.slug}`} i={i} />)}
+      </div>
+      <p class="inc-more" data-reveal>And in every plan: daily backups with a copy on a second drive, and an edit history that cannot be rewritten. <a class="link-plain" href="/security">How your data is kept</a></p>
+    </div>
+  </section>
+
+  <Faq items={questions} title="Buying OSuite" />
+</Page>
+
+<style>
+  .plans-wrap { padding-bottom: calc(var(--section) / 2); }
+  .inc-head { margin-bottom: clamp(1.5rem, 3vw, 3rem); }
+  .inc-more { margin-top: clamp(1.5rem, 2.5vw, 2.5rem); max-width: 70ch; color: var(--muted); }
+</style>

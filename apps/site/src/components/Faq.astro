@@ -1,0 +1,39 @@
+---
+// Questions and answers, two columns of reading text beside the heading.
+interface Props {
+  items: [string, string][];
+  title?: string;
+  id?: string;
+}
+const { items, title = 'Questions people ask', id = 'faq-title' } = Astro.props;
+---
+
+<section class="faq section" aria-labelledby={id}>
+  <div class="container faq-grid">
+    <h2 id={id} class="head" data-reveal>{title}</h2>
+    <dl class="faq-list">
+      {
+        items.map(([q, a], i) => (
+          <div data-reveal style={`--i: ${i % 2}`}>
+            <dt>{q}</dt>
+            <dd>{a}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </div>
+</section>
+
+<style>
+  .faq-grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: var(--gutter); }
+  .faq-grid h2 { max-width: 10ch; }
+  .faq-list { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(1.5rem, 3vw, 2.75rem) var(--gutter); }
+  .faq-list dt { font-weight: 600; letter-spacing: -0.01em; }
+  .faq-list dd { margin-top: 0.5rem; color: var(--muted); max-width: 46ch; }
+  @media (max-width: 63.99em) {
+    .faq-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 47.99em) {
+    .faq-list { grid-template-columns: 1fr; }
+  }
+</style>

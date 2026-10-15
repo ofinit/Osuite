@@ -1,0 +1,55 @@
+---
+import ScreenCard from '../components/ScreenCard.astro';
+import Biz from '../components/Biz.astro';
+import Prose from '../layouts/Prose.astro';
+import { siteData } from '../lib/site';
+import { SCREENS } from '../lib/features';
+
+const { business: b } = await siteData();
+---
+
+<Prose
+  title={`About ${b.brandName}`}
+  description="Why OSuite exists: accounting software for Indian businesses that keeps the books on their own computer and gets GST right."
+  lines={['Why we', 'built it']}
+  standfirst="Indian businesses deserve accounting software that is easy to learn, gets GST right, and leaves their books where they belong."
+  shot={{ src: SCREENS.dashboard, alt: 'The OSuite dashboard', focus: '40% 0' }}
+>
+  <h2>What OSuite is</h2>
+  <p>
+    OSuite is accounting, invoicing, stock and GST software for Indian small and growing businesses: traders, distributors, workshops and service
+    firms. It is built by <Biz k="legalName" fallback="OfinIT" /><span data-biz-if="city" hidden={!b.city}> in <Biz k="city" /></span>.
+  </p>
+
+  <h2>What we believe</h2>
+  <p>
+    <strong>GST is the job, not an add-on.</strong> Place of supply, HSN codes, e-invoices and returns are built into every screen, so the tax is
+    right before anyone checks it.
+  </p>
+  <p>
+    <strong>Your books are yours.</strong> They live on your computer, work without the internet, and are never locked away, even if you stop paying.
+  </p>
+  <p>
+    <strong>Familiar beats clever.</strong> Day book, ledger, Dr and Cr, a statement of account: the words Tally users know, with a screen that
+    explains itself.
+  </p>
+  <p>
+    <strong>Honest records.</strong> Posted documents cannot be edited, numbers never skip, and every change is kept in a history that cannot be
+    quietly rewritten.
+  </p>
+
+  <h2>Talk to us</h2>
+  <p>
+    We are glad to show OSuite to you, or to help you move from your current software. <a href="/contact">Get in touch</a>, or
+    <a href="/download">try it free for 14 days</a>.
+  </p>
+  <section slot="after" class="container card-row more" aria-label="What it looks like">
+    <ScreenCard title="GST on every screen" text="Place of supply and HSN worked out as you type." shot={{ src: SCREENS.invoiceEntry, alt: 'An invoice being entered' }} href="/features/invoicing" i={0} />
+    <ScreenCard title="Words you know" text="Day book, ledger, statement of account." shot={{ src: SCREENS.statement, alt: 'A statement of account' }} href="/features/accounting" i={1} />
+    <ScreenCard title="Who owes what" text="Receivables by how overdue they are." shot={{ src: SCREENS.receivables, alt: 'Receivables by age' }} href="/features/receivables" i={2} />
+  </section>
+</Prose>
+
+<style>
+  .more { padding-bottom: var(--section); }
+</style>

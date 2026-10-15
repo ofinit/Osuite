@@ -1,0 +1,60 @@
+---
+import Biz from '../../components/Biz.astro';
+import Prose from '../../layouts/Prose.astro';
+import { siteData } from '../../lib/site';
+
+const { business: b } = await siteData();
+---
+
+<Prose
+  title={`Licence agreement | ${b.brandName}`}
+  description="The end-user licence agreement for the OSuite desktop software."
+  lines={['Licence', 'agreement']}
+  standfirst="What your licence lets you do with the OSuite software on your computers."
+  meta="Last updated 15 October 2026"
+>
+  <h2>The licence</h2>
+  <p>
+    <Biz k="legalName" fallback="OfinIT" /> grants your business a non-exclusive, non-transferable licence to install and use OSuite for its own
+    business, for the plan, number of users and period you have paid for, or for 14 days as a trial.
+  </p>
+
+  <h2>Computers and users</h2>
+  <p>
+    A licence is activated on one computer at a time, which serves the users your plan includes. To move it to another computer, deactivate it on the
+    first, or ask us to.
+  </p>
+
+  <h2>Licence checks</h2>
+  <p>
+    OSuite checks its licence online every 14 days, sending only what the <a href="/legal/privacy">privacy policy</a> lists. If it cannot check in,
+    or the paid period ends, it continues for 7 days and then turns read-only: you can still open, print and back up all your data.
+  </p>
+
+  <h2>What you may not do</h2>
+  <ul>
+    <li>Copy, sell, rent or sublicense OSuite.</li>
+    <li>Remove or bypass the licence check, or use one licence on more computers than it allows.</li>
+    <li>Reverse engineer OSuite, except where the law permits it despite this agreement.</li>
+  </ul>
+
+  <h2>Third-party software</h2>
+  <p>
+    OSuite includes open-source components, including PostgreSQL and Node.js, each under its own licence; those licences are included with the
+    software and are not limited by this agreement.
+  </p>
+
+  <h2>Your data</h2>
+  <p>Data you enter is yours. Nothing in this licence gives us any right to it.</p>
+
+  <h2>Warranty and liability</h2>
+  <p>
+    The <a href="/legal/terms">terms of service</a> set out our warranty and the limits of our liability, and apply to this licence as well.
+  </p>
+
+  <h2>Ending the licence</h2>
+  <p>
+    The licence ends when your plan ends without renewal, or if you breach this agreement. After it ends, OSuite stays read-only so you keep access
+    to your data.
+  </p>
+</Prose>

@@ -1,0 +1,46 @@
+---
+import Biz from '../../components/Biz.astro';
+import Prose from '../../layouts/Prose.astro';
+import { siteData } from '../../lib/site';
+
+const { business: b } = await siteData();
+const days = b.refundDays || '14';
+---
+
+<Prose
+  title={`Refunds and cancellation | ${b.brandName}`}
+  description="How to cancel an OSuite subscription and when you get your money back."
+  lines={['Getting a', 'refund']}
+  standfirst={`Try OSuite free first. If you buy and it is not right for you, tell us within ${days} days.`}
+  meta="Last updated 15 October 2026"
+>
+  <h2>The free trial</h2>
+  <p>Every plan can be tried free for 14 days with no card, so you can be sure before you pay.</p>
+
+  <h2>Refund within <span data-biz="refundDays">{days}</span> days</h2>
+  <p>
+    If you buy a plan and decide it is not for you, write to <Biz k="supportEmail" link="mailto" fallback="us" /> within
+    <span data-biz="refundDays">{days}</span> days of the payment. We refund the full amount to the account you paid from, usually within 7 working
+    days, and the licence is deactivated.
+  </p>
+
+  <h2>After that</h2>
+  <p>
+    Payments are not refunded after the refund window, but you can cancel at any time: the plan stays active until the end of the period you paid
+    for, and is not renewed. Your data stays on your computer, and OSuite remains read-only after expiry, so you can still open, print and back up
+    everything.
+  </p>
+
+  <h2>Cancelling</h2>
+  <p>
+    Write to <Biz k="supportEmail" link="mailto" fallback="us" /> from the email on your licence, or call
+    <Biz k="phone" link="tel" fallback="us" />. Monthly plans stop at the end of the month in progress; yearly plans at the end of the year in progress.
+  </p>
+
+  <h2>Payments that fail or are taken twice</h2>
+  <p>If a payment is taken twice or for the wrong amount, we refund the difference in full as soon as we confirm it.</p>
+
+  <p>
+    <Biz k="legalName" fallback="OfinIT" />, <Biz k="street" /> <Biz k="city" /> <Biz k="pincode" />. GSTIN <Biz k="gstin" fallback="to be added" />.
+  </p>
+</Prose>

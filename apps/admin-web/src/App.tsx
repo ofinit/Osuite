@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/DashboardPage.tsx';
 import { LicensePage } from './pages/LicensePage.tsx';
 import { LicensesPage } from './pages/LicensesPage.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
+import { BusinessPage } from './pages/BusinessPage.tsx';
 import { PlansPage } from './pages/PlansPage.tsx';
 import { TeamPage } from './pages/TeamPage.tsx';
 
@@ -24,6 +25,7 @@ function routerFor(me: StaffUser) {
         { path: 'customers', element: <CustomersPage /> },
         { path: 'customers/:id', element: <CustomerPage /> },
         { path: 'plans', element: <PlansPage me={me} /> },
+        { path: 'business', element: <BusinessPage me={me} /> },
         { path: 'team', element: <TeamPage me={me} /> },
         { path: 'account', element: <AccountPage me={me} /> },
       ],

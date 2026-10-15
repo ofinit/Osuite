@@ -3,13 +3,14 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import Fastify, { type FastifyRequest } from 'fastify';
 import pg from 'pg';
 import { createBilling } from './billing.ts';
 import { adminRoutes } from './admin-routes.ts';
+import { getBusiness } from './business.ts';
 import { createLicensing, HttpError } from './licensing.ts';
 import { plans } from './schema.ts';
 import { createStaffService } from './staff.ts';
@@ -25,10 +26,10 @@ function loadPrivateKey(): string {
 }
 
 const PLANS: (typeof plans.$inferInsert)[] = [
-  { id: 'trial', name: 'Free trial', seats: 2, modules: ['base'], priceMonthly: '0', priceYearly: '0' },
-  { id: 'starter', name: 'Starter', seats: 1, modules: ['base'], priceMonthly: '799', priceYearly: '7990', cloudAddonMonthly: '499' },
-  { id: 'business', name: 'Business', seats: 5, modules: ['base'], priceMonthly: '2499', priceYearly: '24990', cloudAddonMonthly: '999' },
-  { id: 'enterprise', name: 'Enterprise', seats: 25, modules: ['base'], priceMonthly: '7999', priceYearly: '79990', cloudAddonMonthly: '2999' },
+  { id: 'trial', name: 'Free trial', seats: 2, modules: ['base'], priceMonthly: '0', priceYearly: '0', sortOrder: 0 },
+  { id: 'starter', name: 'Starter', seats: 1, modules: ['base'], priceMonthly: '799', priceYearly: '7990', cloudAddonMonthly: '499', sortOrder: 1 },
+  { id: 'business', name: 'Business', seats: 5, modules: ['base'], priceMonthly: '2499', priceYearly: '24990', cloudAddonMonthly: '999', sortOrder: 2 },
+  { id: 'enterprise', name: 'Enterprise', seats: 25, modules: ['base'], priceMonthly: '7999', priceYearly: '79990', cloudAddonMonthly: '2999', sortOrder: 3 },
 ];
 
 function migrationsFolder() {
@@ -71,7 +72,7 @@ async function main() {
   });
 
   app.setErrorHandler((err, _req, reply) => {
-    if (err instanceof HttpError) return reply.status(err.status).send({ error: err.message });
+    if (err instanceof HttpError) return reply.status(err.status).send({ error: err.message, fieldErrors: err.fieldErrors });
     app.log.error(err);
     return reply.status(500).send({ error: 'Internal error' });
   });
@@ -83,7 +84,32 @@ async function main() {
   app.post('/v1/activate', async (req) => ({ token: await licensing.activate(req.body as Body) }));
   app.post('/v1/trial', async (req) => ({ token: await licensing.startTrial(req.body as Body) }));
   app.post('/v1/checkin', async (req) => licensing.checkin(req.body as Body));
-  app.get('/v1/plans', async () => db.select().from(plans).where(eq(plans.active, true)));
+  app.get('/v1/plans', async () => db.select().from(plans).where(eq(plans.active, true)).orderBy(asc(plans.sortOrder)));
+
+  // What the website and apps show about us: the business profile and the plans on sale.
+  // Public, read-only and cacheable; any origin may read it.
+  app.get('/v1/site', async (_req, reply) => {
+    const [business, onSale] = await Promise.all([
+      getBusiness(db),
+      db.select().from(plans).where(eq(plans.active, true)).orderBy(asc(plans.sortOrder)),
+    ]);
+    return reply
+      .header('access-control-allow-origin', '*')
+      .header('cache-control', 'public, max-age=60')
+      .send({
+        business,
+        plans: onSale.map((p) => ({
+          id: p.id,
+          name: p.name,
+          tagline: p.tagline,
+          includes: p.includes,
+          seats: p.seats,
+          priceMonthly: p.priceMonthly,
+          priceYearly: p.priceYearly,
+          cloudAddonMonthly: p.cloudAddonMonthly,
+        })),
+      });
+  });
 
   // --------------------------------------------------------- webhooks
   app.post('/webhooks/razorpay', async (req) =>

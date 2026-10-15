@@ -51,7 +51,7 @@ export function loadConfig(): Config {
     databaseUrl: env.DATABASE_URL ?? `postgres://osuite@127.0.0.1:${pgPort}/osuite`,
     webDist: env.OSUITE_WEB_DIST ?? (dev ? undefined : join(import.meta.dirname, 'web')),
     // Production talks to the hosted admin API; development to the local one.
-    licenseServer: (env.OSUITE_LICENSE_SERVER ?? (dev ? 'http://127.0.0.1:47900' : 'https://osuite.business')).replace(/\/+$/, ''),
+    licenseServer: (env.OSUITE_LICENSE_SERVER ?? (dev ? 'http://127.0.0.1:47900' : 'https://api.osuite.business')).replace(/\/+$/, ''),
     licenseEnforced: env.OSUITE_LICENSE !== 'off',
     shutdownToken: env.OSUITE_SHUTDOWN_TOKEN,
     dev,

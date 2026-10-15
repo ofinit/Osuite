@@ -1,0 +1,76 @@
+---
+import Prose from '../layouts/Prose.astro';
+import ScreenCard from '../components/ScreenCard.astro';
+import { siteData } from '../lib/site';
+import { SCREENS } from '../lib/features';
+
+const { business: b } = await siteData();
+---
+
+<Prose
+  title={`Your data | ${b.brandName}`}
+  description="Where OSuite keeps your books, how backups and restores work, the edit history that cannot be quietly rewritten, and exactly what leaves your PC."
+  lines={['Your data,', 'your PC']}
+  standfirst="Your books live on your computer, in a database of their own. Here is how they are kept safe, and the little that ever leaves."
+  shot={{ src: SCREENS.backups, alt: 'The backups screen: daily schedule, a second folder for copies, and the list of backups with restore', focus: '30% 0' }}
+>
+  <h2>On your computer, not ours</h2>
+  <p>
+    The desktop edition keeps your company’s data in a PostgreSQL database that OSuite installs and runs on your own PC. Invoices, ledgers,
+    stock and customers never pass through our servers. Daily work needs no internet connection at all.
+  </p>
+
+  <h2>Backups you do not have to remember</h2>
+  <p>
+    OSuite takes a backup every day on its own, keeps the most recent ones, and can copy each one to a second folder you choose: another drive,
+    a USB disk, or a OneDrive or Google Drive folder. You can also take a backup at any moment and download it.
+  </p>
+  <p>
+    A restore never touches your live data until the backup has been checked. It is restored into a separate database first, checked for
+    the right version and an intact edit history, and only then swapped in. Your current data is backed up just before, so a restore can be undone.
+  </p>
+
+  <h2>An edit history that cannot be quietly rewritten</h2>
+  <p>
+    Every change is recorded: who made it, when, and what changed. Each entry is chained to the one before it with a SHA-256 hash, so altering or
+    deleting an old entry, even directly in the database, breaks the chain and shows up when the history is checked.
+  </p>
+  <p>
+    Posted invoices, bills and journals cannot be edited; they are corrected with a cancellation or a note, which is itself recorded. A closed
+    financial year is locked against new entries.
+  </p>
+
+  <h2>People and passwords</h2>
+  <p>
+    Everyone has their own login, so every change carries a name. Passwords are stored only as salted scrypt hashes. Administrators manage users;
+    a licence covers a set number of them.
+  </p>
+
+  <h2>What leaves your PC</h2>
+  <p>
+    Only what the licence needs. When you start the trial, OSuite sends the name, email, phone number and company you type in. Every 14 days it
+    checks in with the licence: the licence token, a fingerprint of the computer, the computer’s name, the OSuite version and the operating system.
+    Nothing from your books is ever sent.
+  </p>
+  <p>
+    If a check-in cannot be made, you have 7 more days. After that OSuite turns read-only until it can check in again: you can still open every
+    record, print and take backups. Your data is never locked away from you.
+  </p>
+
+  <h2>In the cloud</h2>
+  <p>
+    If you choose cloud hosting, we run OSuite for you and take care of backups, and it opens in a browser from anywhere. The software and the
+    edit history are the same, and your data remains yours to download at any time.
+  </p>
+  <p>Questions about data and privacy: see the <a href="/legal/privacy">privacy policy</a> or <a href="/contact">write to us</a>.</p>
+
+  <section slot="after" class="container card-row more" aria-label="Related screens">
+    <ScreenCard title="Year-end closing" text="A closed financial year is locked against new entries." shot={{ src: SCREENS.closing, alt: 'Year-end closing locks a financial year' }} i={0} />
+    <ScreenCard title="The day book" text="Every posted entry, in order, with who posted it." shot={{ src: SCREENS.dayBook, alt: 'The day book of posted entries' }} i={1} />
+    <ScreenCard title="Trial balance" text="Checks that the books agree, at any date you pick." shot={{ src: SCREENS.trialBalance, alt: 'The trial balance' }} i={2} />
+  </section>
+</Prose>
+
+<style>
+  .more { padding-bottom: var(--section); }
+</style>

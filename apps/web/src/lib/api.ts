@@ -122,6 +122,13 @@ export interface EWayBillRequest {
   transDocDate?: string;
 }
 
+/** The seller's plans and contact details, as set in the admin panel. */
+export interface Vendor {
+  business: Record<string, string> | null;
+  plans: { id: string; name: string; tagline: string; includes: string; seats: number; priceMonthly: string; priceYearly: string; cloudAddonMonthly: string }[];
+  fetchedAt: string | null;
+}
+
 export interface BackupInfo {
   name: string;
   kind: 'auto' | 'manual' | 'before-restore' | 'uploaded';
@@ -422,6 +429,7 @@ export const api = {
   updateCompany: (c: Partial<Company>) => request<Company>('PUT', '/company', c),
 
   license: () => request<LicenseStatus & { fingerprint: string }>('GET', '/license'),
+  vendor: () => request<Vendor>('GET', '/vendor'),
   activate: (key: string) => request<LicenseStatus>('POST', '/license/activate', { key }),
   startTrial: (c: { name: string; email: string; phone?: string; company: string }) =>
     request<LicenseStatus>('POST', '/license/trial', c),
