@@ -19,6 +19,7 @@ export type AccountKey =
   | 'input_sgst'
   | 'input_igst'
   | 'payable'
+  | 'grni'
   | 'output_cgst'
   | 'output_sgst'
   | 'output_igst'
@@ -136,12 +137,13 @@ export type JournalKind = 'sale' | 'purchase' | 'sale_return' | 'purchase_return
 /** Mirror image of a set of lines (debits become credits). */
 const negate = (lines: JournalLine[]): JournalLine[] => lines.map((l) => ({ ...l, amount: money.sub(0, l.amount) }));
 
-export function journalLines(kind: JournalKind, record: Values, stockValue: string): JournalLine[] {
+/** `received`: value of goods on a bill that a goods receipt already took into stock. */
+export function journalLines(kind: JournalKind, record: Values, stockValue: string, received = '0.00'): JournalLine[] {
   switch (kind) {
     case 'sale':
       return saleLines(record, stockValue);
     case 'purchase':
-      return purchaseLines(record, stockValue);
+      return purchaseLines(record, stockValue, received);
     // A credit note undoes the sale: same lines with signs flipped. Returned
     // goods come back in (positive value) and reduce COGS.
     case 'sale_return':
@@ -172,14 +174,16 @@ export function saleLines(inv: Values, stockValueOut: string): JournalLine[] {
 }
 
 /**
- * Purchase: goods enter stock at the stock ledger's value; the rest of the
- * taxable value (services, consumables) is a purchase expense; input GST is
- * claimable; the vendor is owed the total.
+ * Purchase: goods enter stock at the stock ledger's value; goods a receipt
+ * already took in clear "Goods received, not billed" at their receipt value;
+ * the rest of the taxable value (services, consumables, price differences)
+ * is a purchase expense; input GST is claimable; the vendor is owed the total.
  */
-export function purchaseLines(bill: Values, stockValueIn: string): JournalLine[] {
+export function purchaseLines(bill: Values, stockValueIn: string, received = '0.00'): JournalLine[] {
   return [
     dr('inventory', stockValueIn),
-    dr('purchases', money.sub(bill.taxableAmount as string, stockValueIn)),
+    dr('grni', received),
+    dr('purchases', money.sub(money.sub(bill.taxableAmount as string, stockValueIn), received)),
     dr('input_cgst', String(bill.cgstAmount)),
     dr('input_sgst', String(bill.sgstAmount)),
     dr('input_igst', String(bill.igstAmount)),

@@ -400,7 +400,8 @@ export function createRecordService(db: Db) {
           if (def.states && model.states && !def.states.includes(String(before[model.states.field])))
             throw new RecordError(409, `"${def.label}" is not available in this state`);
           const lines = await loadLines(tx, model, id);
-          const patch = (await fn({ tx, userId }, { ...before }, lines)) ?? {};
+          // `$open` names a document the action created, for the client to open next.
+          const { $open, ...patch } = (await fn({ tx, userId }, { ...before }, lines)) ?? {};
           const [after] = Object.keys(patch).length
             ? ((await tx
                 .update(table)
@@ -409,7 +410,8 @@ export function createRecordService(db: Db) {
                 .returning()) as [Row])
             : [before];
           await appendAudit(tx, { userId, model: name, recordId: id, action: actionName, changes: diff(before, after, model) });
-          return readFull(tx, name, id);
+          const rec = await readFull(tx, name, id);
+          return $open ? { ...rec, $open } : rec;
         }),
       );
     },

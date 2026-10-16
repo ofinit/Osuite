@@ -8,6 +8,7 @@ import { nextDocumentNumber } from '../../services/numbering.ts';
 import { gstDocumentHooks } from '../gst-document.ts';
 import { defaultWarehouseId } from '../stock/service.ts';
 import { CreditNote, Invoice, Quotation } from './index.ts';
+import { deliveryHooks, orderHooks, quotationToOrder, releaseChallans, withOrderRefresh } from './orders.ts';
 
 const VALID_DAYS = 15;
 const LINE_FIELDS = ['productId', 'description', 'hsnCode', 'qty', 'uom', 'unitPrice', 'discountPct', 'gstRate', 'taxableAmount', 'taxAmount', 'totalAmount'];
@@ -42,6 +43,12 @@ function quotationHooks(): ModelHooks {
       accept: async () => ({ state: 'accepted' }),
       decline: async () => ({ state: 'declined' }),
       revise: async () => ({ state: 'draft' }),
+
+      /** Copies the quotation into a new draft sales order. */
+      async toOrder(ctx, record, lines) {
+        const id = await quotationToOrder(ctx, record, lines.lines ?? []);
+        return { state: 'ordered', orderId: id, $open: { model: 'sales.order', id } };
+      },
 
       /** Copies the quotation into a new draft invoice dated today. */
       async toInvoice({ tx, userId }, record, lines) {
@@ -82,7 +89,7 @@ function quotationHooks(): ModelHooks {
           action: 'create',
           changes: { quotationId: { from: null, to: String(record.number) } },
         });
-        return { state: 'invoiced', invoiceId: created!.id };
+        return { state: 'invoiced', invoiceId: created!.id, $open: { model: 'sales.invoice', id: created!.id } };
       },
     },
   };
@@ -102,11 +109,24 @@ async function releaseQuotation({ tx, userId }: HookCtx, invoice: Values) {
     });
 }
 
+const invoiceGst = gstDocumentHooks(Invoice, { prefix: 'INV', partnerField: 'customerId', gstinField: 'customerGstin', stock: 'out', journal: 'sale' });
+
 export const hooks: HookMap = {
   'sales.quotation': quotationHooks(),
+  'sales.order': orderHooks,
+  'sales.delivery': deliveryHooks,
   'sales.invoice': {
-    ...gstDocumentHooks(Invoice, { prefix: 'INV', partnerField: 'customerId', gstinField: 'customerGstin', stock: 'out', journal: 'sale' }),
-    beforeRemove: releaseQuotation,
+    ...invoiceGst,
+    async beforeRemove(ctx, invoice) {
+      await releaseQuotation(ctx, invoice);
+      await releaseChallans(ctx, invoice);
+    },
+    actions: {
+      ...invoiceGst.actions,
+      // Orders count posted invoices; a cancelled invoice's challans can be invoiced again.
+      post: withOrderRefresh(invoiceGst.actions!.post!),
+      cancel: withOrderRefresh(invoiceGst.actions!.cancel!, releaseChallans),
+    },
   },
   'sales.credit_note': gstDocumentHooks(CreditNote, {
     prefix: 'CN',

@@ -17,7 +17,7 @@ import { GstSummary } from './GstSummary.tsx';
 import { LinesEditor } from './LinesEditor.tsx';
 
 /** Models with a print layout (see views/PrintView.tsx). */
-export const PRINTABLE = new Set(['sales.quotation', 'sales.invoice', 'sales.credit_note']);
+export const PRINTABLE = new Set(['sales.quotation', 'sales.order', 'sales.delivery', 'sales.invoice', 'sales.credit_note', 'purchase.order']);
 
 const idOf = (v: unknown) => (v && typeof v === 'object' ? ((v as Many2oneValue).id ?? null) : (v ?? null));
 
@@ -141,11 +141,11 @@ export function RecordPanel({
       const f = model.states ? model.fields[model.states.field] : undefined;
       const state = f?.type === 'selection' ? f.options.find(([v]) => v === data[model.states!.field])?.[1] : null;
       setMessage({ kind: 'ok', text: state ? `${model.label} ${state.toLowerCase()}` : 'Done' });
-      // A quotation turned into an invoice: carry on in the new draft invoice.
-      const inv = data.invoiceId as { id: number } | null | undefined;
-      if (model.name === 'sales.quotation' && data.state === 'invoiced' && inv) {
-        void qc.invalidateQueries({ queryKey: ['list', 'sales.invoice'] });
-        void navigate(`/m/sales.invoice?id=${inv.id}`);
+      // The action created a document (e.g. an invoice from a quotation): carry on there.
+      const open = data.$open as { model: string; id: number } | undefined;
+      if (open) {
+        void qc.invalidateQueries({ queryKey: ['list', open.model] });
+        void navigate(`/m/${open.model}?id=${open.id}`);
       }
     },
     onError: fail,

@@ -219,7 +219,8 @@ export function gstDocumentHooks(model: ModelDef, opts: GstDocOptions): ModelHoo
           ctx.tx,
           src(record, number),
           rows
-            .filter((l) => goods.has(l.productId as number))
+            // Goods already sent on a delivery challan left stock (and were costed) there.
+            .filter((l) => goods.has(l.productId as number) && !l.stockDone)
             .map((l) => ({
               productId: l.productId as number,
               warehouseId: record.warehouseId as number,
@@ -231,7 +232,9 @@ export function gstDocumentHooks(model: ModelDef, opts: GstDocOptions): ModelHoo
             })),
         ));
       }
-      await postJournal(ctx.tx, { ...src(record, number), narration: `${model.label} ${number}` }, journalLines(opts.journal, record, stockValue));
+      // Goods a receipt already took into stock clear their receipt value instead.
+      const received = money.add(0, ...rows.filter((l) => l.stockDone && opts.stock === 'in').map((l) => String(l.receivedValue ?? 0)));
+      await postJournal(ctx.tx, { ...src(record, number), narration: `${model.label} ${number}` }, journalLines(opts.journal, record, stockValue, received));
 
       const patch: Values = { state: 'posted', number, [opts.gstinField]: gstin };
       if (orig) {

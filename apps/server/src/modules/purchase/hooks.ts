@@ -1,17 +1,12 @@
 import type { HookMap } from '../../services/hooks.ts';
-import { gstDocumentHooks, noDuplicate } from '../gst-document.ts';
-import { Bill, DebitNote } from './index.ts';
+import { gstDocumentHooks } from '../gst-document.ts';
+import { DebitNote } from './index.ts';
+import { billHooks, orderHooks, receiptHooks } from './orders.ts';
 
 export const hooks: HookMap = {
-  'purchase.bill': gstDocumentHooks(Bill, {
-    prefix: 'BILL',
-    partnerField: 'vendorId',
-    gstinField: 'vendorGstin',
-    partnerStateField: 'vendorState',
-    beforePost: noDuplicate('purchase.bill', 'vendorId', 'vendorBillNo', 'Bill'),
-    stock: 'in',
-    journal: 'purchase',
-  }),
+  'purchase.order': orderHooks,
+  'purchase.receipt': receiptHooks,
+  'purchase.bill': billHooks,
   'purchase.debit_note': gstDocumentHooks(DebitNote, {
     prefix: 'DN',
     partnerField: 'vendorId',

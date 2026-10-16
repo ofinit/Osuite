@@ -10,14 +10,26 @@ import { formatDate, formatDecimal } from '../lib/format.ts';
 import { useSession } from '../lib/session.ts';
 
 type Line = Record<string, unknown>;
-type Variant = 'invoice' | 'credit_note' | 'quotation' | 'proforma';
+type Variant = 'invoice' | 'credit_note' | 'quotation' | 'proforma' | 'order' | 'challan' | 'purchase_order';
 
 const VARIANT: Record<Variant, { title: string; noun: string; numberLabel: string; dateLabel: string }> = {
   invoice: { title: 'Tax Invoice', noun: 'tax invoice', numberLabel: 'Invoice no.', dateLabel: 'Invoice date' },
   credit_note: { title: 'Credit Note', noun: 'credit note', numberLabel: 'Credit note no.', dateLabel: 'Date' },
   quotation: { title: 'Quotation', noun: 'quotation', numberLabel: 'Quotation no.', dateLabel: 'Date' },
   proforma: { title: 'Proforma Invoice', noun: 'proforma invoice', numberLabel: 'Proforma no.', dateLabel: 'Date' },
+  order: { title: 'Sales Order', noun: 'sales order', numberLabel: 'Order no.', dateLabel: 'Order date' },
+  challan: { title: 'Delivery Challan', noun: 'delivery challan', numberLabel: 'Challan no.', dateLabel: 'Challan date' },
+  purchase_order: { title: 'Purchase Order', noun: 'purchase order', numberLabel: 'PO no.', dateLabel: 'Order date' },
 };
+const VARIANT_OF: Record<string, Variant> = {
+  'sales.invoice': 'invoice',
+  'sales.credit_note': 'credit_note',
+  'sales.quotation': 'quotation',
+  'sales.order': 'order',
+  'sales.delivery': 'challan',
+  'purchase.order': 'purchase_order',
+};
+const PURPOSE: Record<string, string> = { supply: 'Supply', approval: 'Sent on approval', job_work: 'Job work', other: 'Other' };
 const stateName = (code: unknown) => IN_STATES.find(([c]) => c === code)?.[1] ?? '';
 const money = (v: unknown) => formatDecimal(String(v ?? 0));
 
@@ -25,10 +37,10 @@ export function PrintView() {
   const { model = '', id = '' } = useParams();
   const [params] = useSearchParams();
   const { company } = useSession();
-  const variant: Variant | null =
-    model === 'sales.invoice' ? 'invoice' : model === 'sales.credit_note' ? 'credit_note' : model === 'sales.quotation' ? (params.get('as') === 'proforma' ? 'proforma' : 'quotation') : null;
+  const variant: Variant | null = model === 'sales.quotation' && params.get('as') === 'proforma' ? 'proforma' : (VARIANT_OF[model] ?? null);
   const { data: doc, error } = useQuery({ queryKey: ['record', model, Number(id)], queryFn: () => api.read(model, Number(id)) });
-  const customerId = (doc?.customerId as { id: number } | null)?.id;
+  // The other party: the customer, or the vendor on a purchase order.
+  const customerId = ((doc?.customerId ?? doc?.vendorId) as { id: number } | null | undefined)?.id;
   const { data: customer } = useQuery({
     queryKey: ['record', 'base.contact', customerId],
     queryFn: () => api.read('base.contact', customerId!),
@@ -36,7 +48,8 @@ export function PrintView() {
   });
 
   useEffect(() => {
-    if (doc?.number) document.title = `${String(doc.number).replaceAll('/', '-')} ${String((doc.customerId as { display: string }).display)}`;
+    const party = (doc?.customerId ?? doc?.vendorId) as { display: string } | undefined;
+    if (doc?.number && party) document.title = `${String(doc.number).replaceAll('/', '-')} ${party.display}`;
   }, [doc]);
 
   if (error) return <p className="p-8 text-crimson">{error.message}</p>;
@@ -66,6 +79,9 @@ function TaxInvoice({ doc, customer, company, variant }: { doc: RecordData; cust
   const v = VARIANT[variant];
   const isCreditNote = variant === 'credit_note';
   const isQuote = variant === 'quotation' || variant === 'proforma';
+  const isChallan = variant === 'challan';
+  // Only invoices and credit notes are GST tax documents; the rest are not.
+  const taxDoc = variant === 'invoice' || isCreditNote;
   const lines = (doc.lines as Line[]) ?? [];
   const intraState = Number(doc.igstAmount) === 0 && (Number(doc.cgstAmount) > 0 || company?.stateCode === doc.placeOfSupply);
   const calc = computeGst(
@@ -91,7 +107,7 @@ function TaxInvoice({ doc, customer, company, variant }: { doc: RecordData; cust
     doc.irnStatus === 'cancelled'
       ? 'E-invoice cancelled'
       : state === 'draft'
-      ? isQuote
+      ? isQuote || variant === 'order' || variant === 'purchase_order'
         ? `Draft ${v.noun}`
         : `Draft: not a valid ${v.noun}`
       : state === 'cancelled'
@@ -134,7 +150,7 @@ function TaxInvoice({ doc, customer, company, variant }: { doc: RecordData; cust
         </div>
         <div className="text-right">
           <p className="text-[18px] font-bold tracking-wide">{v.title}</p>
-          <p className="text-[11px]">{isQuote ? 'This is not a tax invoice' : 'Original for recipient'}</p>
+          <p className="text-[11px]">{isChallan ? 'Original for consignee' : taxDoc ? 'Original for recipient' : 'This is not a tax invoice'}</p>
         </div>
       </header>
 
@@ -142,12 +158,12 @@ function TaxInvoice({ doc, customer, company, variant }: { doc: RecordData; cust
 
       <section className="grid grid-cols-2 gap-6 border-b border-black py-3">
         <div>
-          <p className="font-semibold">Bill to</p>
+          <p className="font-semibold">{isChallan ? 'Deliver to' : variant === 'purchase_order' ? 'Vendor' : 'Bill to'}</p>
           <p className="text-[13px] font-semibold">{String(customer.name)}</p>
           {address.map((a) => (
             <p key={a}>{a}</p>
           ))}
-          <p>GSTIN: {doc.customerGstin ? String(doc.customerGstin) : 'Unregistered'}</p>
+          <p>GSTIN: {doc.customerGstin || doc.vendorGstin ? String(doc.customerGstin ?? doc.vendorGstin) : 'Unregistered'}</p>
           {!!customer.phone && <p>Phone: {String(customer.phone)}</p>}
         </div>
         <dl className="grid grid-cols-[auto_1fr] content-start gap-x-4 gap-y-0.5">
@@ -159,8 +175,32 @@ function TaxInvoice({ doc, customer, company, variant }: { doc: RecordData; cust
               <dd>{(doc.invoiceId as { display: string } | null)?.display}</dd>
             </>
           )}
+          {!isCreditNote && !!doc.orderId && (
+            <>
+              <dt>Sales order</dt>
+              <dd>{(doc.orderId as { display: string }).display}</dd>
+            </>
+          )}
           <dt>{v.dateLabel}</dt>
           <dd>{formatDate(String(doc.date))}</dd>
+          {!!doc.deliverBy && (
+            <>
+              <dt>{variant === 'purchase_order' ? 'Expected by' : 'Deliver by'}</dt>
+              <dd>{formatDate(String(doc.deliverBy))}</dd>
+            </>
+          )}
+          {isChallan && (
+            <>
+              <dt>Purpose</dt>
+              <dd>{PURPOSE[String(doc.purpose)] ?? String(doc.purpose)}</dd>
+            </>
+          )}
+          {!!doc.vehicleNo && (
+            <>
+              <dt>Vehicle no.</dt>
+              <dd>{String(doc.vehicleNo)}</dd>
+            </>
+          )}
           {!!doc.validUntil && (
             <>
               <dt>Valid until</dt>
@@ -183,7 +223,7 @@ function TaxInvoice({ doc, customer, company, variant }: { doc: RecordData; cust
               <dd>{String(doc.reference)}</dd>
             </>
           )}
-          {!isQuote && (
+          {taxDoc && (
             <>
               <dt>Reverse charge</dt>
               <dd>No</dd>
@@ -307,10 +347,17 @@ function TaxInvoice({ doc, customer, company, variant }: { doc: RecordData; cust
 
       {(variant === 'invoice' || variant === 'proforma') && <PaymentDetails company={company} doc={doc} />}
 
-      {!isQuote && company?.invoiceTerms && (
+      {taxDoc && company?.invoiceTerms && (
         <section className="mt-3">
           <p className="font-semibold">Terms</p>
           <p className="whitespace-pre-line">{company.invoiceTerms}</p>
+        </section>
+      )}
+
+      {isChallan && (
+        <section className="mt-6 grid grid-cols-2 gap-6">
+          <p>Goods received in good condition.</p>
+          <p className="mt-10 border-t border-black pt-1 text-right">Receiver's signature and date</p>
         </section>
       )}
 

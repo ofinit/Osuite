@@ -37,7 +37,7 @@ await api('POST', '/setup', { companyName: 'Ofin Demo Traders', gstin: '27AAPFU0
 token = (await api('POST', '/auth/login', { login: 'admin', password: 'admin1234' })).body.token;
 
 const accounts = (await api('GET', '/records/account.account?limit=100')).body.records;
-check(accounts.length === 19 && accounts.some((a) => a.key === 'receivable' && a.code === '1300'), 'chart of accounts seeded (19 accounts)', accounts.length);
+check(accounts.length === 20 && accounts.some((a) => a.key === 'receivable' && a.code === '1300'), 'chart of accounts seeded (20 accounts)', accounts.length);
 
 const bolt = await create('base.product', { name: 'Steel bolt M8', hsnCode: '7318', salePrice: '9', costPrice: '4', kind: 'goods' });
 const acme = await create('base.contact', { name: 'Acme Industries', stateCode: '27', gstin: '27AAPFU0939F1ZV' });
