@@ -94,5 +94,7 @@ describe('e-way bill', () => {
     expect(eWayBillValidUntil('2026-10-15', 200)).toBe('2026-10-16');
     expect(eWayBillValidUntil('2026-10-15', 201)).toBe('2026-10-17');
     expect(eWayBillValidUntil('2026-10-15', 0)).toBe('2026-10-16');
+    // 1 am IST on 17 Oct is still 16 Oct in UTC; the days run from the Indian date.
+    expect(eWayBillValidUntil('2026-10-16T19:30:00Z', 840)).toBe('2026-10-22');
   });
 });

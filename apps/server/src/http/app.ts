@@ -1,13 +1,13 @@
 import { existsSync } from 'node:fs';
 import { Readable } from 'node:stream';
 import fastifyStatic from '@fastify/static';
-import { localToday, type SearchParams, type SessionUser } from '@osuite/kernel';
+import { actionLevel, areaOfModel, AREAS, allows, localToday, modelAccess, type AccessLevel, type Area, type SearchParams, type SessionUser } from '@osuite/kernel';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import type { Config } from '../config.ts';
 import type { Db } from '../db/client.ts';
-import { metadata } from '../registry.ts';
+import { getModel, metadata } from '../registry.ts';
 import { verifyAuditChain } from '../services/audit.ts';
-import { dashboard } from '../modules/account/dashboard.ts';
+import { dashboard, dashboardFor } from '../modules/account/dashboard.ts';
 import { dayBook, ledger } from '../modules/account/ledger.ts';
 import { balanceSheet, checkDate, gstr1, gstr3b, profitAndLoss, trialBalance } from '../modules/account/reports.ts';
 import { autoMatch, bookLine, importStatement, matchLine, reconcileView, unmatchLine } from '../modules/account/bank.ts';
@@ -55,6 +55,25 @@ function requireAdmin(req: FastifyRequest): SessionUser {
   const u = requireUser(req);
   if (!u.isAdmin) throw new RecordError(403, 'Administrator access required');
   return u;
+}
+
+const AREA_LABEL = Object.fromEntries(AREAS.map(([a, label]) => [a, label])) as Record<Area, string>;
+const NEED_VERB: Record<AccessLevel, string> = { none: '', view: 'view', edit: 'make changes in', full: 'cancel documents in' };
+
+/** The user's role must allow `need` in `area`. */
+function requireArea(req: FastifyRequest, area: Area, need: AccessLevel): SessionUser {
+  const u = requireUser(req);
+  if (u.isAdmin || allows(u.access[area], need)) return u;
+  throw new RecordError(403, `Your role does not let you ${NEED_VERB[need]} ${AREA_LABEL[area]}. Ask an administrator.`);
+}
+
+/** The user's role must allow `need` on a model (contacts and products are always readable). */
+function requireModel(req: FastifyRequest, model: string, need: AccessLevel): SessionUser {
+  const u = requireUser(req);
+  if (allows(modelAccess(u, model), need)) return u;
+  const area = areaOfModel(model);
+  if (!area) throw new RecordError(403, 'Administrator access required');
+  return requireArea(req, area, need);
 }
 
 function parseId(v: string | undefined): number {
@@ -158,13 +177,12 @@ export async function buildApp(deps: AppDeps) {
   });
 
   app.get('/api/meta', async (req) => {
-    requireUser(req);
-    return metadata();
+    return metadata(requireUser(req));
   });
 
   // ------------------------------------------------------------- records
   app.get('/api/records/:model', async (req: Req) => {
-    requireUser(req);
+    requireModel(req, req.params.model!, 'view');
     return records.search(req.params.model!, searchParams(req.query));
   });
 
@@ -174,35 +192,37 @@ export async function buildApp(deps: AppDeps) {
   });
 
   app.get('/api/records/:model/:id', async (req: Req) => {
-    requireUser(req);
+    requireModel(req, req.params.model!, 'view');
     return records.read(req.params.model!, parseId(req.params.id));
   });
 
   app.get('/api/records/:model/:id/history', async (req: Req) => {
-    requireUser(req);
+    requireModel(req, req.params.model!, 'view');
     return records.history(req.params.model!, parseId(req.params.id));
   });
 
   app.post('/api/records/:model', async (req: Req, reply: FastifyReply) => {
-    const u = requireUser(req);
+    const u = requireModel(req, req.params.model!, 'edit');
     writable();
     return reply.status(201).send(await records.create(req.params.model!, req.body, u.id));
   });
 
   app.patch('/api/records/:model/:id', async (req: Req) => {
-    const u = requireUser(req);
+    const u = requireModel(req, req.params.model!, 'edit');
     writable();
     return records.update(req.params.model!, parseId(req.params.id), req.body, u.id);
   });
 
   app.post('/api/records/:model/:id/actions/:action', async (req: Req) => {
-    const u = requireUser(req);
+    // Cancelling posted documents needs full access.
+    const def = getModel(req.params.model!)?.actions?.find((a) => a.name === req.params.action);
+    const u = requireModel(req, req.params.model!, def ? actionLevel(def) : 'edit');
     writable();
     return records.action(req.params.model!, parseId(req.params.id), req.params.action!, u.id);
   });
 
   app.post('/api/records/:model/set-active', async (req: Req) => {
-    const u = requireUser(req);
+    const u = requireModel(req, req.params.model!, 'edit');
     writable();
     const { ids, active } = (req.body ?? {}) as { ids: unknown; active: unknown };
     if (!Array.isArray(ids) || typeof active !== 'boolean') throw new RecordError(400, 'Expected { ids, active }');
@@ -211,7 +231,7 @@ export async function buildApp(deps: AppDeps) {
   });
 
   app.delete('/api/records/:model/:id', async (req: Req, reply: FastifyReply) => {
-    const u = requireUser(req);
+    const u = requireModel(req, req.params.model!, 'edit');
     writable();
     await records.remove(req.params.model!, parseId(req.params.id), u.id);
     return reply.status(204).send();
@@ -219,24 +239,23 @@ export async function buildApp(deps: AppDeps) {
 
   // ------------------------------------------------------------- reports
   app.get('/api/dashboard', async (req: Req) => {
-    requireUser(req);
-    return dashboard(deps.db);
+    return dashboardFor(await dashboard(deps.db), requireUser(req));
   });
 
   app.get('/api/reports/ageing', async (req: Req) => {
-    requireUser(req);
+    requireArea(req, 'payments', 'view');
     const direction = req.query.direction === 'outbound' ? 'outbound' : 'inbound';
     const asOf = /^\d{4}-\d{2}-\d{2}$/.test(req.query.asOf ?? '') ? req.query.asOf : undefined;
     return ageing(deps.db, direction, asOf);
   });
 
   app.get('/api/reports/trial-balance', async (req: Req) => {
-    requireUser(req);
+    requireArea(req, 'accounts', 'view');
     return trialBalance(deps.db, checkDate(req.query.asOf, localToday()));
   });
 
   app.get('/api/reports/profit-loss', async (req: Req) => {
-    requireUser(req);
+    requireArea(req, 'accounts', 'view');
     const to = checkDate(req.query.to, localToday());
     // Default: the current Indian financial year to date.
     const fyStart = `${Number(to.slice(5, 7)) >= 4 ? to.slice(0, 4) : Number(to.slice(0, 4)) - 1}-04-01`;
@@ -244,12 +263,12 @@ export async function buildApp(deps: AppDeps) {
   });
 
   app.get('/api/reports/balance-sheet', async (req: Req) => {
-    requireUser(req);
+    requireArea(req, 'accounts', 'view');
     return balanceSheet(deps.db, checkDate(req.query.asOf, localToday()));
   });
 
   app.get('/api/reports/ledger', async (req: Req) => {
-    requireUser(req);
+    requireArea(req, 'accounts', 'view');
     const to = checkDate(req.query.to, localToday());
     const fyStart = `${Number(to.slice(5, 7)) >= 4 ? to.slice(0, 4) : Number(to.slice(0, 4)) - 1}-04-01`;
     const optId = (v: string | undefined) => (v ? parseId(v) : undefined);
@@ -257,24 +276,24 @@ export async function buildApp(deps: AppDeps) {
   });
 
   app.get('/api/reports/day-book', async (req: Req) => {
-    requireUser(req);
+    requireArea(req, 'accounts', 'view');
     const to = checkDate(req.query.to, localToday());
     return dayBook(deps.db, checkDate(req.query.from, to), to);
   });
 
   app.get('/api/reports/gstr-1', async (req: Req) => {
-    requireUser(req);
+    requireArea(req, 'gst', 'view');
     return gstr1(deps.db, req.query.month);
   });
 
   app.get('/api/reports/gstr-3b', async (req: Req) => {
-    requireUser(req);
+    requireArea(req, 'gst', 'view');
     return gstr3b(deps.db, req.query.month);
   });
 
   // ------------------------------------------------------------- e-invoicing
   app.get('/api/einvoice/settings', async (req: Req) => {
-    requireUser(req);
+    requireArea(req, 'gst', 'view');
     return { ...(await deps.einvoice.getSettings()), providers: await deps.einvoice.providerList() };
   });
 
@@ -285,30 +304,30 @@ export async function buildApp(deps: AppDeps) {
   });
 
   app.get('/api/einvoice/:model/:id', async (req: Req) => {
-    requireUser(req);
+    requireArea(req, 'gst', 'view');
     return deps.einvoice.preview(req.params.model!, parseId(req.params.id));
   });
 
   app.post('/api/einvoice/:model/:id/generate', async (req: Req) => {
-    const u = requireUser(req);
+    const u = requireArea(req, 'gst', 'edit');
     writable();
     return deps.einvoice.generate(req.params.model!, parseId(req.params.id), u.id);
   });
 
   app.post('/api/einvoice/:model/:id/cancel', async (req: Req) => {
-    const u = requireUser(req);
+    const u = requireArea(req, 'gst', 'full');
     writable();
     return deps.einvoice.cancel(req.params.model!, parseId(req.params.id), (req.body ?? {}) as Record<string, string>, u.id);
   });
 
   app.post('/api/einvoice/:model/:id/ewaybill', async (req: Req) => {
-    const u = requireUser(req);
+    const u = requireArea(req, 'gst', 'edit');
     writable();
     return deps.einvoice.eWayBill(req.params.model!, parseId(req.params.id), (req.body ?? {}) as never, u.id);
   });
 
   app.post('/api/einvoice/:model/:id/ewaybill/cancel', async (req: Req) => {
-    const u = requireUser(req);
+    const u = requireArea(req, 'gst', 'full');
     writable();
     return deps.einvoice.cancelEWayBill(req.params.model!, parseId(req.params.id), (req.body ?? {}) as Record<string, string>, u.id);
   });
@@ -358,25 +377,25 @@ export async function buildApp(deps: AppDeps) {
 
   // ------------------------------------------------------------- bank reconciliation
   app.post('/api/bank/statements', async (req: Req, reply: FastifyReply) => {
-    const u = requireUser(req);
+    const u = requireArea(req, 'payments', 'edit');
     writable();
     const body = (req.body ?? {}) as { bankAccountId: number; rows: unknown; closingBalance?: string | null };
     return reply.status(201).send(await deps.db.transaction((tx) => importStatement(tx, body, u.id)));
   });
 
   app.get('/api/bank/statements/:id', async (req: Req) => {
-    requireUser(req);
+    requireArea(req, 'payments', 'view');
     return reconcileView(deps.db, parseId(req.params.id));
   });
 
   app.post('/api/bank/statements/:id/auto-match', async (req: Req) => {
-    const u = requireUser(req);
+    const u = requireArea(req, 'payments', 'edit');
     writable();
     return deps.db.transaction((tx) => autoMatch(tx, parseId(req.params.id), u.id));
   });
 
   app.post('/api/bank/lines/:id/match', async (req: Req) => {
-    const u = requireUser(req);
+    const u = requireArea(req, 'payments', 'edit');
     writable();
     const { entryLineId } = (req.body ?? {}) as { entryLineId: number };
     await deps.db.transaction((tx) => matchLine(tx, parseId(req.params.id), Number(entryLineId), u.id));
@@ -384,27 +403,27 @@ export async function buildApp(deps: AppDeps) {
   });
 
   app.post('/api/bank/lines/:id/unmatch', async (req: Req) => {
-    const u = requireUser(req);
+    const u = requireArea(req, 'payments', 'edit');
     writable();
     await deps.db.transaction((tx) => unmatchLine(tx, parseId(req.params.id), u.id));
     return { ok: true };
   });
 
   app.post('/api/bank/lines/:id/book', async (req: Req) => {
-    const u = requireUser(req);
+    const u = requireArea(req, 'payments', 'edit');
     writable();
     return deps.db.transaction((tx) => bookLine(tx, parseId(req.params.id), (req.body ?? {}) as Record<string, unknown>, u.id));
   });
 
   // ------------------------------------------------------------- credit & closing
   app.get('/api/credits', async (req: Req) => {
-    requireUser(req);
+    requireArea(req, 'payments', 'view');
     const direction = req.query.direction === 'outbound' ? 'outbound' : 'inbound';
     return availableCredit(deps.db, direction, parseId(req.query.partnerId));
   });
 
   app.post('/api/credits/apply', async (req: Req) => {
-    const u = requireUser(req);
+    const u = requireArea(req, 'payments', 'edit');
     writable();
     const b = (req.body ?? {}) as { direction?: string; partnerId?: number; docId?: number };
     const direction = b.direction === 'outbound' ? 'outbound' : 'inbound';
@@ -414,14 +433,14 @@ export async function buildApp(deps: AppDeps) {
   });
 
   app.post('/api/credits/:id/reverse', async (req: Req) => {
-    const u = requireUser(req);
+    const u = requireArea(req, 'payments', 'edit');
     writable();
     await deps.db.transaction((tx) => reverseSettlementRow(tx, parseId(req.params.id), u.id));
     return { ok: true };
   });
 
   app.get('/api/closing/years', async (req) => {
-    requireUser(req);
+    requireArea(req, 'accounts', 'view');
     return listYears(deps.db);
   });
 
@@ -458,8 +477,16 @@ export async function buildApp(deps: AppDeps) {
   app.post('/api/users', async (req: Req, reply: FastifyReply) => {
     requireAdmin(req);
     writable();
-    const body = (req.body ?? {}) as { name: string; login: string; password: string; isAdmin?: boolean };
+    const body = (req.body ?? {}) as { name: string; login: string; password: string; isAdmin?: boolean; roleId?: number | null };
     return reply.status(201).send(await auth.createUser(body, license.seats()));
+  });
+
+  app.put('/api/users/:id/access', async (req: Req) => {
+    const u = requireAdmin(req);
+    writable();
+    const body = (req.body ?? {}) as { isAdmin?: boolean; roleId?: number | null };
+    await auth.setUserAccess(parseId(req.params.id), body, u.id);
+    return { ok: true };
   });
 
   app.post('/api/users/:id/set-active', async (req: Req) => {

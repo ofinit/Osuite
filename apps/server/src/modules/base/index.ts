@@ -1,4 +1,4 @@
-import { defineModel, defineModule } from '@osuite/kernel';
+import { ACCESS_LEVELS, accessField, AREAS, defineModel, defineModule, type FieldDef } from '@osuite/kernel';
 import { IN_STATES } from '@osuite/kernel';
 
 export const UOMS = [
@@ -141,11 +141,39 @@ export const Product = defineModel({
   },
 });
 
+/** What a group of users may do in each area. Managed by administrators. */
+export const Role = defineModel({
+  name: 'base.role',
+  table: 'base_role',
+  label: 'Role',
+  labelPlural: 'Roles',
+  recName: 'name',
+  searchFields: ['name'],
+  order: 'name asc',
+  fields: {
+    name: { type: 'char', label: 'Name', required: true, maxLength: 80, unique: true },
+    notes: { type: 'text', label: 'Who it is for' },
+    ...Object.fromEntries(
+      AREAS.map(([area, label, help]) => [
+        accessField(area),
+        { type: 'selection', label, options: ACCESS_LEVELS, default: 'view', required: true, help } satisfies FieldDef,
+      ]),
+    ),
+  },
+  list: { columns: ['name', ...AREAS.map(([a]) => accessField(a))] },
+  form: {
+    sections: [
+      { fields: ['name', 'notes'] },
+      { title: 'What this role may do', columns: 2, fields: AREAS.map(([a]) => accessField(a)) },
+    ],
+  },
+});
+
 export default defineModule({
   name: 'base',
   label: 'Base',
   depends: [],
-  models: [Contact, ProductCategory, Product],
+  models: [Contact, ProductCategory, Product, Role],
   menus: [
     { id: 'contacts', label: 'Contacts', icon: 'users', model: 'base.contact' },
     {

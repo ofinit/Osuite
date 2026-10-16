@@ -43,7 +43,8 @@ const profile = {
 r = await as('PUT', '/company', profile);
 check(r.status === 200 && r.body.bankIfsc === 'HDFC0000123', 'company profile saved and normalised', r.body);
 check((await as('GET', '/bootstrap')).body.company.upiId === 'ofindemo@okhdfc', 'bootstrap returns the full profile');
-await as('POST', '/users', { name: 'Clerk', login: 'clerk', password: 'clerk1234' });
+const fullRole = (await as('GET', '/records/base.role?q=Full%20access')).body.records[0].id;
+await as('POST', '/users', { name: 'Clerk', login: 'clerk', password: 'clerk1234', roleId: fullRole });
 const clerk = (await api('POST', '/auth/login', { login: 'clerk', password: 'clerk1234' })).body.token;
 r = await api('PUT', '/company', profile, clerk);
 check(r.status === 403, 'only administrators change company details', r.body);

@@ -34,6 +34,8 @@ export const users = pgTable('users', {
   name: varchar('name', { length: 200 }).notNull(),
   passwordHash: text('password_hash').notNull(),
   isAdmin: boolean('is_admin').notNull().default(false),
+  /** What a non-administrator may do; administrators may do everything. */
+  roleId: bigint('role_id', { mode: 'number' }).references(() => tableFor('base.role').id, { onDelete: 'restrict' }),
   active: boolean('active').notNull().default(true),
   createdAt: ts('created_at').notNull().defaultNow(),
 });

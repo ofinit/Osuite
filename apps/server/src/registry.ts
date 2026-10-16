@@ -1,5 +1,5 @@
 // Loads every module, generates tables and exposes the merged metadata.
-import type { AppModule, Metadata, ModelDef } from '@osuite/kernel';
+import { allows, modelAccess, PATH_AREAS, type AppModule, type MenuItem, type Metadata, type ModelDef, type SessionUser } from '@osuite/kernel';
 import { defineModelTable, type AnyTable } from './db/tables.ts';
 import base from './modules/base/index.ts';
 import { hooks as baseHooks } from './modules/base/hooks.ts';
@@ -43,9 +43,22 @@ export function getModel(name: string): ModelDef | undefined {
   return models.get(name);
 }
 
-export function metadata(): Metadata {
+/** Menu entries the user may open; a group with nothing left in it goes too. */
+function visibleMenus(items: MenuItem[], user: SessionUser): MenuItem[] {
+  return items.flatMap((item) => {
+    if (item.children) {
+      const children = visibleMenus(item.children, user);
+      return children.length ? [{ ...item, children }] : [];
+    }
+    if (item.model) return modelAccess(user, item.model) === 'none' ? [] : [item];
+    const area = item.path ? PATH_AREAS[item.path] : undefined;
+    return !area || user.isAdmin || allows(user.access[area], 'view') ? [item] : [];
+  });
+}
+
+export function metadata(user: SessionUser): Metadata {
   return {
     models: Object.fromEntries(models),
-    menus: MODULES.flatMap((m) => m.menus),
+    menus: visibleMenus(MODULES.flatMap((m) => m.menus), user),
   };
 }

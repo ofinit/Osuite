@@ -1,25 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserPlus } from 'lucide-react';
 import { useState } from 'react';
-import { api, ApiError } from '../lib/api.ts';
+import { Link } from 'react-router';
+import { api, ApiError, type UserRow } from '../lib/api.ts';
 import { formatDate } from '../lib/format.ts';
 import { useSession } from '../lib/session.ts';
 import { FormError, TextField } from './AuthLayout.tsx';
+
+/** One choice covers both: "admin", or a role id. */
+const ADMIN = 'admin';
+const accessValue = (u: Pick<UserRow, 'isAdmin' | 'roleId'>) => (u.isAdmin ? ADMIN : u.roleId ? String(u.roleId) : '');
+const accessInput = (v: string) => ({ isAdmin: v === ADMIN, roleId: v && v !== ADMIN ? Number(v) : null });
 
 export function UsersView() {
   const { user: me, license } = useSession();
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ['users'], queryFn: api.users });
+  const { data: roles } = useQuery({ queryKey: ['list', 'base.role', 'all'], queryFn: () => api.search('base.role', { limit: 100 }) });
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: '', login: '', password: '', isAdmin: false });
+  const empty = { name: '', login: '', password: '', access: '' };
+  const [form, setForm] = useState(empty);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
-    mutationFn: () => api.createUser(form),
+    mutationFn: () => api.createUser({ name: form.name, login: form.login, password: form.password, ...accessInput(form.access) }),
     onSuccess: () => {
       setAdding(false);
-      setForm({ name: '', login: '', password: '', isAdmin: false });
+      setForm(empty);
       setErrors({});
       setError(null);
       void qc.invalidateQueries({ queryKey: ['users'] });
@@ -34,8 +42,26 @@ export function UsersView() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['users'] }),
     onError: (err) => setError(err.message),
   });
+  const changeAccess = useMutation({
+    mutationFn: ({ id, value }: { id: number; value: string }) => api.setUserAccess(id, accessInput(value)),
+    onSuccess: () => {
+      setError(null);
+      void qc.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (err) => setError(err.message),
+  });
 
   const active = data?.users.filter((u) => u.active).length ?? 0;
+  const options = (
+    <>
+      <option value={ADMIN}>Administrator (everything)</option>
+      {roles?.records.map((r) => (
+        <option key={String(r.id)} value={String(r.id)}>
+          {String(r.name)}
+        </option>
+      ))}
+    </>
+  );
 
   return (
     <div className="h-full overflow-y-auto px-5 py-6 sm:px-10">
@@ -46,12 +72,19 @@ export function UsersView() {
             {data.seats ? `${active} of ${data.seats} seats in use` : `${active} active`}
           </span>
         )}
+        <Link className="btn-outline" to="/m/base.role">
+          Roles
+        </Link>
         {license.writable && !adding && (
           <button className="btn-primary" onClick={() => setAdding(true)}>
             <UserPlus size={16} /> Add user
           </button>
         )}
       </div>
+      <p className="mt-1 max-w-3xl text-[13px] text-ink-2">
+        A role sets what someone may do in sales, purchases, stock, payments, accounts and GST. Administrators may do everything, including
+        company settings, users and backups.
+      </p>
 
       {adding && (
         <form
@@ -73,10 +106,23 @@ export function UsersView() {
             autoComplete="new-password"
             required
           />
-          <label className="flex items-center gap-2.5 self-end pb-2">
-            <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={form.isAdmin} onChange={(e) => setForm({ ...form, isAdmin: e.target.checked })} />
-            Administrator
-          </label>
+          <div>
+            <label htmlFor="a-access" className="mb-1 block text-[12.5px] font-medium text-ink-2">
+              Role
+            </label>
+            <select
+              id="a-access"
+              className="field-input"
+              value={form.access}
+              onChange={(e) => setForm({ ...form, access: e.target.value })}
+              aria-invalid={errors.roleId ? true : undefined}
+              required
+            >
+              <option value="">Choose…</option>
+              {options}
+            </select>
+            {errors.roleId && <p className="mt-1 text-[12.5px] text-crimson">{errors.roleId}</p>}
+          </div>
           <div className="sm:col-span-2">
             <FormError message={error} />
           </div>
@@ -106,7 +152,21 @@ export function UsersView() {
             <tr key={u.id} className={u.active ? '' : 'text-ink-3'}>
               <td className="border-b border-rule py-2.5 font-medium">{u.name}</td>
               <td className="border-b border-rule py-2.5">{u.login}</td>
-              <td className="border-b border-rule py-2.5">{u.isAdmin ? 'Administrator' : 'User'}</td>
+              <td className="border-b border-rule py-1.5">
+                {u.id === me.id || !license.writable ? (
+                  (u.isAdmin ? 'Administrator' : (u.roleName ?? 'No role'))
+                ) : (
+                  <select
+                    className="field-input h-8 py-0 text-[13px]"
+                    aria-label={`Role of ${u.name}`}
+                    value={accessValue(u)}
+                    onChange={(e) => changeAccess.mutate({ id: u.id, value: e.target.value })}
+                  >
+                    {!accessValue(u) && <option value="">No role</option>}
+                    {options}
+                  </select>
+                )}
+              </td>
               <td className="border-b border-rule py-2.5 max-sm:hidden">{formatDate(u.createdAt)}</td>
               <td className="border-b border-rule py-2.5 text-right">
                 {u.id !== me.id && license.writable && (
@@ -119,7 +179,11 @@ export function UsersView() {
           ))}
         </tbody>
       </table>
-      {!adding && <div className="mt-3 max-w-3xl"><FormError message={error} /></div>}
+      {!adding && (
+        <div className="mt-3 max-w-3xl">
+          <FormError message={error} />
+        </div>
+      )}
     </div>
   );
 }

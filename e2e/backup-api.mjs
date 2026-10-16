@@ -111,7 +111,8 @@ check(r.status === 200 && (await invoiceCount()) === 1, 'uploaded backup restore
 check((await api('POST', '/backups/..%2F..%2Fpg.secret/restore')).status === 400, 'path tricks refused');
 check((await api('GET', '/backups/osuite-manual-20000101-000000.osbak/download')).status === 404, 'unknown backup is 404');
 await create('base.contact', { name: 'x' }); // keep a write after restore working
-const clerk = await api('POST', '/users', { name: 'Clerk', login: 'clerk', password: 'clerk12345', isAdmin: false });
+const fullRole = (await api('GET', '/records/base.role?q=Full%20access')).body.records[0].id;
+const clerk = await api('POST', '/users', { name: 'Clerk', login: 'clerk', password: 'clerk12345', isAdmin: false, roleId: fullRole });
 check(clerk.status === 201, 'clerk created', clerk.body);
 const adminToken = token;
 await login('clerk', 'clerk12345');

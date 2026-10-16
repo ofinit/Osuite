@@ -1,5 +1,5 @@
 // The home dashboard: the few numbers an owner checks every morning.
-import { financialYear, localToday, money } from '@osuite/kernel';
+import { allows, financialYear, localToday, modelAccess, money, type Area, type SessionUser } from '@osuite/kernel';
 import { sql } from 'drizzle-orm';
 import type { Tx } from '../../db/client.ts';
 import { gstr3b, profitAndLoss } from './reports.ts';
@@ -133,5 +133,28 @@ export async function dashboard(tx: Tx, today = localToday()) {
     topCustomers,
     lowStock,
     drafts,
+  };
+}
+
+/** The dashboard without the figures a user's role may not see. */
+export function dashboardFor(d: Awaited<ReturnType<typeof dashboard>>, user: SessionUser) {
+  const sees = (a: Area) => user.isAdmin || allows(user.access[a], 'view');
+  const sales = sees('sales');
+  const purchase = sees('purchase');
+  const payments = sees('payments');
+  return {
+    asOf: d.asOf,
+    fy: d.fy,
+    sales: sales ? d.sales : null,
+    purchasesMonth: purchase ? d.purchasesMonth : null,
+    profitFy: sees('accounts') ? d.profitFy : null,
+    cash: payments ? d.cash : null,
+    receivable: payments ? d.receivable : null,
+    payable: payments ? d.payable : null,
+    gst: sees('gst') ? d.gst : null,
+    trend: sales || purchase ? d.trend.map((t) => ({ ...t, sales: sales ? t.sales : '0.00', purchases: purchase ? t.purchases : '0.00' })) : null,
+    topCustomers: sales ? d.topCustomers : null,
+    lowStock: sees('inventory') ? d.lowStock : null,
+    drafts: d.drafts.filter((x) => modelAccess(user, x.model) !== 'none'),
   };
 }

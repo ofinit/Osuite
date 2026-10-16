@@ -1,4 +1,5 @@
 // Wire types shared by server and client.
+import type { Access } from './access.ts';
 
 export interface Many2oneValue {
   id: number;
@@ -56,6 +57,10 @@ export interface SessionUser {
   login: string;
   name: string;
   isAdmin: boolean;
+  roleId: number | null;
+  roleName: string | null;
+  /** What the user may do in each area (all full for administrators). */
+  access: Access;
 }
 
 export interface ApiError {

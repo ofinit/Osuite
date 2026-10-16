@@ -141,6 +141,20 @@
       "when": 1792128983718,
       "tag": "0019_grni_account",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792175591778,
+      "tag": "0020_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792175594024,
+      "tag": "0021_starter_roles",
+      "breakpoints": true
     }
   ]
 }

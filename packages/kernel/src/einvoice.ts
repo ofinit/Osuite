@@ -223,6 +223,8 @@ export function validateEWayBill(e: EWayBillInput): string[] {
   return problems;
 }
 
+const IST_OFFSET_MS = 5.5 * 3_600_000;
+
 /**
  * Last day an e-way bill is valid for ordinary cargo: one day for up to 200 km
  * and one more for every further 200 km or part, each day ending at midnight
@@ -230,7 +232,9 @@ export function validateEWayBill(e: EWayBillInput): string[] {
  */
 export function eWayBillValidUntil(generatedIso: string, distanceKm: number): string {
   const days = Math.max(1, Math.ceil(Math.max(distanceKm, 1) / 200));
-  const d = new Date(`${generatedIso.slice(0, 10)}T00:00:00Z`);
+  // Days are counted in Indian time: a bill made at 1 am IST belongs to that IST date, not the previous UTC one.
+  const day = generatedIso.length > 10 ? new Date(Date.parse(generatedIso) + IST_OFFSET_MS).toISOString().slice(0, 10) : generatedIso;
+  const d = new Date(`${day}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }

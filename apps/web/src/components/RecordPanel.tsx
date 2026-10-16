@@ -1,8 +1,9 @@
-import { computeGst, isIntraState, isVisible, type ActionDef, type LinesField, type Many2oneValue, type ModelDef, type RecordData } from '@osuite/kernel';
+import { actionLevel, computeGst, isIntraState, isVisible, type ActionDef, type LinesField, type Many2oneValue, type ModelDef, type RecordData } from '@osuite/kernel';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Archive, ArchiveRestore, BookOpen, Printer, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAccess } from '../lib/access.ts';
 import { api, ApiError } from '../lib/api.ts';
 import { defaults, fillFrom, linesPayload, type Values } from '../lib/document.ts';
 import { formatDateTime, formatValue } from '../lib/format.ts';
@@ -63,7 +64,8 @@ export function RecordPanel({
   /** Message to show on mount, e.g. after a create. */
   flash?: string | null;
 }) {
-  const { license, company } = useSession();
+  const { company } = useSession();
+  const access = useAccess();
   const { data: meta } = useMeta();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -96,7 +98,9 @@ export function RecordPanel({
   const dirty = Object.keys(payload).length > 0;
   const stateValue = model.states ? String(values[model.states.field] ?? '') : '';
   const locked = !!model.states && !isNew && !!record.data && !model.states.editable.includes(stateValue);
-  const readOnly = !license.writable || (!isNew && !record.data) || locked || !!model.readonly;
+  // What the user's role allows on this model (and the licence still allows changes).
+  const editable = access.canChange(model.name);
+  const readOnly = !editable || (!isNew && !record.data) || locked || !!model.readonly;
 
   // Live GST preview, computed with the same function the server uses.
   const gst = useMemo(() => {
@@ -211,7 +215,12 @@ export function RecordPanel({
   const archived = record.data && !record.data.active;
   const stateField = model.states ? model.fields[model.states.field] : undefined;
   const stateLabel = stateField?.type === 'selection' ? stateField.options.find(([v]) => v === stateValue)?.[1] : undefined;
-  const actions = !isNew && record.data && license.writable ? (model.actions ?? []).filter((a) => !a.states || a.states.includes(stateValue)) : [];
+  // Links to other records: opening needs view, starting a new one needs edit.
+  const allowedLink = (q: { href: string }) => {
+    const [, target, query = ''] = q.href.match(/^\/m\/([\w.]+)\??(.*)$/) ?? [];
+    return !target || (new URLSearchParams(query).get('id') === 'new' ? access.canChange(target) : access.can(target, 'view'));
+  };
+  const actions = !isNew && record.data ? (model.actions ?? []).filter((a) => (!a.states || a.states.includes(stateValue)) && access.canChange(model.name, actionLevel(a))) : [];
 
   return (
     <aside className={clsx('panel-in relative flex w-full flex-col border-l border-rule bg-sheet', !page && 'lg:w-[min(600px,48vw)]')} aria-label={title}>
@@ -234,15 +243,15 @@ export function RecordPanel({
           </div>
         </div>
         {!isNew &&
-          quickActions(model, record.data).map((a) => (
+          quickActions(model, record.data).filter(allowedLink).map((a) => (
             <Link key={a.href} className="btn-outline" to={a.href}>
               {a.label}
             </Link>
           ))}
-        {!isNew && record.data && (
+        {!isNew && record.data && access.area('payments', 'edit') && (
           <ApplyCredit model={model} record={record.data} onResult={(kind, text) => setMessage({ kind, text })} />
         )}
-        {model.name === 'base.contact' && !isNew && record.data && (
+        {model.name === 'base.contact' && !isNew && record.data && access.area('accounts') && (
           <Link className="btn-outline" to={`/reports/ledger?partner=${record.data.id}`}>
             <BookOpen size={15} /> Statement
           </Link>
@@ -366,7 +375,7 @@ export function RecordPanel({
       </div>
 
       <footer className="flex flex-wrap items-center gap-2 border-t border-rule py-3 pr-4 pl-11">
-        {license.writable && !locked && !model.readonly && (
+        {editable && !locked && !model.readonly && (
           <>
             <button className="btn-primary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
               {save.isPending ? 'Saving…' : isNew ? 'Create' : 'Save'}
@@ -396,7 +405,7 @@ export function RecordPanel({
         >
           {message?.text}
         </span>
-        {!isNew && license.writable && record.data && !model.readonly && (
+        {!isNew && editable && record.data && !model.readonly && (
           <>
             <button
               className="btn-quiet px-2"

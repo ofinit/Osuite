@@ -8,3 +8,4 @@ export * from './stock.ts';
 export * from './money.ts';
 export * from './bank.ts';
 export * from './einvoice.ts';
+export * from './access.ts';

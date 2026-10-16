@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { ArrowDownRight, ArrowUpRight, FilePlus2, HandCoins, ReceiptText } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import { useAccess } from '../lib/access.ts';
 import { api, type Dashboard } from '../lib/api.ts';
 import { formatDecimal } from '../lib/format.ts';
 import { useMeta, useSession } from '../lib/session.ts';
@@ -23,7 +24,8 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const monthLabel = (ym: string) => MONTHS[Number(ym.slice(5, 7)) - 1]!;
 
 export function HomeView() {
-  const { user, company, license } = useSession();
+  const { user, company } = useSession();
+  const access = useAccess();
   const { data, error } = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard, refetchInterval: 5 * 60 * 1000 });
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -37,19 +39,23 @@ export function HomeView() {
           </h1>
           <p className="mt-0.5 text-ink-2">{company?.name}</p>
         </div>
-        {license.writable && (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+          {access.canChange('sales.invoice') && (
             <Link className="btn-primary" to="/m/sales.invoice?id=new">
               <FilePlus2 size={15} /> New invoice
             </Link>
+          )}
+          {access.canChange('account.payment') && (
             <Link className="btn-outline" to="/m/account.payment?f.direction=inbound&id=new">
               <HandCoins size={15} /> Receive payment
             </Link>
+          )}
+          {access.canChange('purchase.bill') && (
             <Link className="btn-outline" to="/m/purchase.bill?id=new">
               <ReceiptText size={15} /> New bill
             </Link>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {error && <p className="mt-6 text-crimson">{error.message}</p>}
@@ -64,96 +70,116 @@ export function HomeView() {
 }
 
 function Board({ d }: { d: Dashboard }) {
-  const change = money.cmp(d.sales.lastMonthToDate, 0) > 0 ? (Number(d.sales.month) / Number(d.sales.lastMonthToDate) - 1) * 100 : null;
-  const gstCredit = money.cmp(d.gst.net, 0) < 0;
+  const change = d.sales && money.cmp(d.sales.lastMonthToDate, 0) > 0 ? (Number(d.sales.month) / Number(d.sales.lastMonthToDate) - 1) * 100 : null;
+  const gstCredit = !!d.gst && money.cmp(d.gst.net, 0) < 0;
   return (
     <>
       <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Key figures">
-        <Kpi
-          label="Sales this month"
-          value={rupees(d.sales.month)}
-          to="/m/sales.invoice"
-          note={
-            change === null ? (
-              `Today ${rupees(d.sales.today)}`
-            ) : (
-              <span className={clsx('inline-flex items-center gap-0.5', change >= 0 ? 'text-ok' : 'text-crimson')}>
-                {change >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                {Math.abs(change).toFixed(0)}% vs same days last month
-              </span>
-            )
-          }
-        />
-        <Kpi
-          label="Customers owe you"
-          value={rupees(d.receivable.total)}
-          to="/reports/receivables"
-          note={
-            money.isPositive(d.receivable.overdue) ? <span className="text-crimson">{rupees(d.receivable.overdue)} overdue</span> : 'Nothing overdue'
-          }
-        />
-        <Kpi
-          label="You owe vendors"
-          value={rupees(d.payable.total)}
-          to="/reports/payables"
-          note={money.isPositive(d.payable.overdue) ? <span className="text-amber">{rupees(d.payable.overdue)} overdue</span> : 'Nothing overdue'}
-        />
-        <Kpi
-          label="Cash and bank"
-          value={rupees(d.cash.total)}
-          to={d.cash.accounts[0] ? `/reports/ledger?account=${d.cash.accounts[0].accountId}` : undefined}
-          note={d.cash.accounts
-            .filter((a) => Number(a.balance) !== 0)
-            .map((a) => `${a.name} ${rupees(a.balance)}`)
-            .join(' · ') || 'No money recorded yet'}
-        />
-        <Kpi
-          label={`GST ${gstCredit ? 'credit' : 'payable'} for ${monthLabel(d.gst.month)}`}
-          value={rupees(gstCredit ? money.sub(0, d.gst.net) : d.gst.net)}
-          to="/reports/gstr-3b"
-          note={`Output ${rupees(d.gst.output)} less input credit ${rupees(d.gst.input)}`}
-        />
-        <Kpi
-          label={`${money.cmp(d.profitFy, 0) < 0 ? 'Loss' : 'Profit'} in FY ${d.fy}`}
-          value={rupees(money.cmp(d.profitFy, 0) < 0 ? money.sub(0, d.profitFy) : d.profitFy)}
-          to="/reports/profit-loss"
-          note={`On sales of ${rupees(d.sales.fy)}`}
-          tone={money.cmp(d.profitFy, 0) < 0 ? 'bad' : undefined}
-        />
+        {d.sales && (
+          <Kpi
+            label="Sales this month"
+            value={rupees(d.sales.month)}
+            to="/m/sales.invoice"
+            note={
+              change === null ? (
+                `Today ${rupees(d.sales.today)}`
+              ) : (
+                <span className={clsx('inline-flex items-center gap-0.5', change >= 0 ? 'text-ok' : 'text-crimson')}>
+                  {change >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                  {Math.abs(change).toFixed(0)}% vs same days last month
+                </span>
+              )
+            }
+          />
+        )}
+        {d.receivable && (
+          <Kpi
+            label="Customers owe you"
+            value={rupees(d.receivable.total)}
+            to="/reports/receivables"
+            note={
+              money.isPositive(d.receivable.overdue) ? <span className="text-crimson">{rupees(d.receivable.overdue)} overdue</span> : 'Nothing overdue'
+            }
+          />
+        )}
+        {d.payable && (
+          <Kpi
+            label="You owe vendors"
+            value={rupees(d.payable.total)}
+            to="/reports/payables"
+            note={money.isPositive(d.payable.overdue) ? <span className="text-amber">{rupees(d.payable.overdue)} overdue</span> : 'Nothing overdue'}
+          />
+        )}
+        {d.cash && (
+          <Kpi
+            label="Cash and bank"
+            value={rupees(d.cash.total)}
+            to={d.cash.accounts[0] ? `/reports/ledger?account=${d.cash.accounts[0].accountId}` : undefined}
+            note={d.cash.accounts
+              .filter((a) => Number(a.balance) !== 0)
+              .map((a) => `${a.name} ${rupees(a.balance)}`)
+              .join(' · ') || 'No money recorded yet'}
+          />
+        )}
+        {d.gst && (
+          <Kpi
+            label={`GST ${gstCredit ? 'credit' : 'payable'} for ${monthLabel(d.gst.month)}`}
+            value={rupees(gstCredit ? money.sub(0, d.gst.net) : d.gst.net)}
+            to="/reports/gstr-3b"
+            note={`Output ${rupees(d.gst.output)} less input credit ${rupees(d.gst.input)}`}
+          />
+        )}
+        {d.profitFy !== null && (
+          <Kpi
+            label={`${money.cmp(d.profitFy, 0) < 0 ? 'Loss' : 'Profit'} in FY ${d.fy}`}
+            value={rupees(money.cmp(d.profitFy, 0) < 0 ? money.sub(0, d.profitFy) : d.profitFy)}
+            to="/reports/profit-loss"
+            note={d.sales ? `On sales of ${rupees(d.sales.fy)}` : `Financial year ${d.fy}`}
+            tone={money.cmp(d.profitFy, 0) < 0 ? 'bad' : undefined}
+          />
+        )}
       </section>
 
-      <section className="mt-4 rounded-[6px] border border-rule bg-sheet p-4" aria-label="Sales and purchases, last 12 months">
-        <div className="mb-2 flex flex-wrap items-center gap-4">
-          <h2 className="mr-auto font-semibold">Last 12 months</h2>
-          <Legend className="bg-accent" label="Sales" />
-          <Legend className="bg-rule-strong" label="Purchases" />
-        </div>
-        <TrendChart trend={d.trend} />
-      </section>
+      {d.trend && (
+        <section className="mt-4 rounded-[6px] border border-rule bg-sheet p-4" aria-label="Sales and purchases, last 12 months">
+          <div className="mb-2 flex flex-wrap items-center gap-4">
+            <h2 className="mr-auto font-semibold">Last 12 months</h2>
+            {d.sales && <Legend className="bg-accent" label="Sales" />}
+            {d.purchasesMonth !== null && <Legend className="bg-rule-strong" label="Purchases" />}
+          </div>
+          <TrendChart trend={d.trend} />
+        </section>
+      )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Panel title="Overdue invoices" empty="No invoice is overdue." more={{ to: '/reports/receivables', label: 'All receivables' }}>
-          {d.receivable.overdueInvoices.map((i) => (
-            <Row key={i.id} to={`/m/sales.invoice?id=${i.id}`} left={i.partner} sub={`${i.number} · ${i.daysOverdue} days overdue`} right={rupees(i.amountDue)} danger={i.daysOverdue > 90} />
-          ))}
-        </Panel>
-        <Panel title={`Top customers, FY ${d.fy}`} empty="No sales this year yet.">
-          {d.topCustomers.map((c) => (
-            <Row key={c.partnerId} to={`/reports/ledger?partner=${c.partnerId}`} left={c.name} right={rupees(c.sales)} />
-          ))}
-        </Panel>
-        <Panel title="Running low" empty="Nothing is below its reorder level." more={{ to: '/m/stock.quant', label: 'Stock on hand' }}>
-          {d.lowStock.map((p) => (
-            <Row
-              key={p.productId}
-              to={`/m/base.product?id=${p.productId}`}
-              left={p.name}
-              sub={Number(p.reorderLevel) > 0 ? `Reorder at ${formatDecimal(p.reorderLevel, 0)} ${p.uom}` : 'Negative stock'}
-              right={`${formatDecimal(p.onHand, Number(p.onHand) % 1 ? 2 : 0)} ${p.uom}`}
-              danger={Number(p.onHand) <= 0}
-            />
-          ))}
-        </Panel>
+        {d.receivable && (
+          <Panel title="Overdue invoices" empty="No invoice is overdue." more={{ to: '/reports/receivables', label: 'All receivables' }}>
+            {d.receivable.overdueInvoices.map((i) => (
+              <Row key={i.id} to={`/m/sales.invoice?id=${i.id}`} left={i.partner} sub={`${i.number} · ${i.daysOverdue} days overdue`} right={rupees(i.amountDue)} danger={i.daysOverdue > 90} />
+            ))}
+          </Panel>
+        )}
+        {d.topCustomers && (
+          <Panel title={`Top customers, FY ${d.fy}`} empty="No sales this year yet.">
+            {d.topCustomers.map((c) => (
+              <Row key={c.partnerId} to={`/reports/ledger?partner=${c.partnerId}`} left={c.name} right={rupees(c.sales)} />
+            ))}
+          </Panel>
+        )}
+        {d.lowStock && (
+          <Panel title="Running low" empty="Nothing is below its reorder level." more={{ to: '/m/stock.quant', label: 'Stock on hand' }}>
+            {d.lowStock.map((p) => (
+              <Row
+                key={p.productId}
+                to={`/m/base.product?id=${p.productId}`}
+                left={p.name}
+                sub={Number(p.reorderLevel) > 0 ? `Reorder at ${formatDecimal(p.reorderLevel, 0)} ${p.uom}` : 'Negative stock'}
+                right={`${formatDecimal(p.onHand, Number(p.onHand) % 1 ? 2 : 0)} ${p.uom}`}
+                danger={Number(p.onHand) <= 0}
+              />
+            ))}
+          </Panel>
+        )}
         <Drafts drafts={d.drafts} />
       </div>
     </>
@@ -186,7 +212,7 @@ function Legend({ className, label }: { className: string; label: string }) {
   );
 }
 
-function TrendChart({ trend }: { trend: Dashboard['trend'] }) {
+function TrendChart({ trend }: { trend: NonNullable<Dashboard['trend']> }) {
   const [hover, setHover] = useState<number | null>(null);
   // Drawn at the container's real width so text stays at its true size.
   const box = useRef<HTMLDivElement>(null);

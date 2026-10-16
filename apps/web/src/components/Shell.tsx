@@ -65,7 +65,7 @@ export function Shell() {
           {user.isAdmin && (
             <>
               <SideLink to="/settings/company" icon={Building2} label="Company" />
-              <SideLink to="/settings/users" icon={UserCog} label="Users" />
+              <SideLink to="/settings/users" icon={UserCog} label="Users and roles" />
               <SideLink to="/settings/einvoice" icon={FileBadge} label="E-invoicing" />
               <SideLink to="/settings/backups" icon={DatabaseBackup} label="Backups" />
               <SideLink to="/settings/license" icon={KeyRound} label="Licence" />

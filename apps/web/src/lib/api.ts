@@ -78,24 +78,25 @@ function qs(p: SearchParams): string {
 
 export type { Company };
 
+/** Parts the user's role may not see come back as null. */
 export interface Dashboard {
   asOf: string;
   fy: string;
-  sales: { today: string; month: string; lastMonthToDate: string; fy: string };
-  purchasesMonth: string;
-  profitFy: string;
-  cash: { accounts: { accountId: number; name: string; balance: string }[]; total: string };
+  sales: { today: string; month: string; lastMonthToDate: string; fy: string } | null;
+  purchasesMonth: string | null;
+  profitFy: string | null;
+  cash: { accounts: { accountId: number; name: string; balance: string }[]; total: string } | null;
   receivable: {
     total: string;
     overdue: string;
     advance: string;
     overdueInvoices: { id: number; number: string; partner: string; amountDue: string; daysOverdue: number }[];
-  };
-  payable: { total: string; overdue: string; advance: string };
-  gst: { month: string; output: string; input: string; net: string };
-  trend: { month: string; sales: string; purchases: string }[];
-  topCustomers: { partnerId: number; name: string; sales: string }[];
-  lowStock: { productId: number; name: string; uom: string; onHand: string; reorderLevel: string }[];
+  } | null;
+  payable: { total: string; overdue: string; advance: string } | null;
+  gst: { month: string; output: string; input: string; net: string } | null;
+  trend: { month: string; sales: string; purchases: string }[] | null;
+  topCustomers: { partnerId: number; name: string; sales: string }[] | null;
+  lowStock: { productId: number; name: string; uom: string; onHand: string; reorderLevel: string }[] | null;
   drafts: { model: string; count: number }[];
 }
 
@@ -385,9 +386,10 @@ export const api = {
     request<RecordData>('POST', `/records/${m(model)}/${id}/actions/${m(action)}`),
 
   users: () => request<{ users: UserRow[]; seats: number | null }>('GET', '/users'),
-  createUser: (u: { name: string; login: string; password: string; isAdmin: boolean }) =>
+  createUser: (u: { name: string; login: string; password: string; isAdmin: boolean; roleId: number | null }) =>
     request<SessionUser>('POST', '/users', u),
   setUserActive: (id: number, active: boolean) => request<{ ok: true }>('POST', `/users/${id}/set-active`, { active }),
+  setUserAccess: (id: number, access: { isAdmin: boolean; roleId: number | null }) => request<{ ok: true }>('PUT', `/users/${id}/access`, access),
 
   ageing: (direction: 'inbound' | 'outbound') => request<AgeingReport>('GET', `/reports/ageing?direction=${direction}`),
   report: <K extends keyof Reports>(name: K, params: Reports[K]['params']) =>

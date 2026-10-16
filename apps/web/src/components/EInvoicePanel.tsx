@@ -4,6 +4,7 @@ import { CircleCheck, Download, FileBadge, TriangleAlert, Truck } from 'lucide-r
 import { useState } from 'react';
 import { api, type EWayBillRequest } from '../lib/api.ts';
 import { formatDate } from '../lib/format.ts';
+import { useAccess } from '../lib/access.ts';
 import { useSession } from '../lib/session.ts';
 
 const MODELS = new Set(['sales.invoice', 'sales.credit_note']);
@@ -30,8 +31,10 @@ function saveJson(name: string, data: unknown) {
 /** E-invoice (IRN) and e-way bill for a posted sales document. */
 export function EInvoicePanel({ model, record, onChanged }: { model: ModelDef; record: RecordData; onChanged: (text: string) => void }) {
   const { license } = useSession();
+  const access = useAccess();
   const qc = useQueryClient();
-  const applies = MODELS.has(model.name) && record.state !== 'draft';
+  // E-invoicing belongs to the GST area of a role.
+  const applies = MODELS.has(model.name) && record.state !== 'draft' && access.area('gst');
   const { data: settings } = useQuery({ queryKey: ['einvoice-settings'], queryFn: api.einvoiceSettings, enabled: applies, staleTime: 60_000 });
   const live = applies && !!settings?.enabled;
   const { data: preview } = useQuery({
@@ -65,7 +68,8 @@ export function EInvoicePanel({ model, record, onChanged }: { model: ModelDef; r
 
   if (!live) return null;
   const busy = generate.isPending || cancel.isPending || makeEwb.isPending;
-  const canWrite = license.writable && record.state === 'posted';
+  const canWrite = license.writable && record.state === 'posted' && access.area('gst', 'edit');
+  const canCancel = access.area('gst', 'full');
   const irnActive = record.irnStatus === 'active';
   const within24h = (iso: unknown) => !!iso && Date.now() - Date.parse(String(iso)) < DAY;
   const simulated = !!record.irnSimulated;
@@ -142,12 +146,12 @@ export function EInvoicePanel({ model, record, onChanged }: { model: ModelDef; r
               <Truck size={14} /> E-way bill
             </button>
           )}
-          {record.ewbStatus === 'active' && within24h(record.ewbDate) && (
+          {canCancel && record.ewbStatus === 'active' && within24h(record.ewbDate) && (
             <button type="button" className="btn-quiet h-8 text-crimson" onClick={() => setCancelling('ewb')}>
               Cancel e-way bill
             </button>
           )}
-          {record.ewbStatus !== 'active' && within24h(record.irnAckDate) && (
+          {canCancel && record.ewbStatus !== 'active' && within24h(record.irnAckDate) && (
             <button type="button" className="btn-quiet h-8 text-crimson" onClick={() => setCancelling('irn')}>
               Cancel e-invoice
             </button>

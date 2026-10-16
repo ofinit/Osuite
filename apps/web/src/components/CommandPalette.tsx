@@ -5,6 +5,7 @@ import { FileText, Plus, Search, CornerDownLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { api } from '../lib/api.ts';
+import { useAccess } from '../lib/access.ts';
 import { flattenMenus, menuHref } from '../lib/menus.ts';
 import { creatableModels, useMeta, useSession } from '../lib/session.ts';
 
@@ -25,7 +26,8 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const [q, setQ] = useState('');
   const term = useDebounced(q.trim(), 180);
   // Records people open directly; lines and ledgers are reached through their documents.
-  const models: ModelDef[] = creatableModels(meta);
+  const access = useAccess();
+  const models: ModelDef[] = creatableModels(meta).filter((m) => access.can(m.name, 'view'));
 
   const { data: hits = [], isFetching } = useQuery({
     queryKey: ['palette', term],
@@ -47,7 +49,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const needle = q.trim().toLowerCase();
   const matches = (...texts: string[]) => !needle || texts.some((t) => t.toLowerCase().includes(needle));
   const goTo = flattenMenus(meta?.menus ?? []).filter((m) => menuHref(m) && matches(m.label));
-  const creates = license.writable ? models.filter((m) => matches(`new ${m.label}`, `create ${m.label}`)) : [];
+  const creates = models.filter((m) => access.canChange(m.name) && matches(`new ${m.label}`, `create ${m.label}`));
   const records = term.length >= 2 ? hits : [];
 
   const go = (path: string) => {

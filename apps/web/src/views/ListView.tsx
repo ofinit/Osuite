@@ -8,7 +8,8 @@ import { RecordPanel, StateBadge } from '../components/RecordPanel.tsx';
 import { api } from '../lib/api.ts';
 import { formatValue, isNumeric } from '../lib/format.ts';
 import { filterDefaults, findMenu, urlFilters } from '../lib/menus.ts';
-import { useMeta, useModel, useSession } from '../lib/session.ts';
+import { useAccess } from '../lib/access.ts';
+import { useMeta, useModel } from '../lib/session.ts';
 
 const PAGE = 80;
 
@@ -18,13 +19,17 @@ const typingTarget = (t: EventTarget | null) =>
 export function ListView() {
   const { model: modelName } = useParams();
   const model = useModel(modelName);
+  const access = useAccess();
   if (!modelName) return null;
   if (!model) return <div className="p-8 text-ink-3">Loading…</div>;
+  if (!access.can(model.name, 'view'))
+    return <div className="p-8 text-ink-2">Your role does not include {model.labelPlural.toLowerCase()}. Ask an administrator if you need them.</div>;
   return <ModelList key={model.name} model={model} />;
 }
 
 function ModelList({ model }: { model: ModelDef }) {
-  const { license } = useSession();
+  const access = useAccess();
+  const canCreate = access.canChange(model.name);
   const { data: meta } = useMeta();
   const [params, setParams] = useSearchParams();
   const openId = params.get('id');
@@ -101,7 +106,7 @@ function ModelList({ model }: { model: ModelDef }) {
       if (e.key === '/') {
         e.preventDefault();
         searchRef.current?.focus();
-      } else if (e.key.toLowerCase() === 'n' && license.writable && !model.readonly && !openId) {
+      } else if (e.key.toLowerCase() === 'n' && canCreate && !model.readonly && !openId) {
         e.preventDefault();
         update({ id: 'new' });
       } else if (!openId && e.key === 'ArrowDown') {
@@ -171,7 +176,7 @@ function ModelList({ model }: { model: ModelDef }) {
               Include archived
             </label>
           )}
-          {license.writable && !model.readonly && (
+          {canCreate && !model.readonly && (
             <button className="btn-primary" onClick={() => update({ id: 'new' })}>
               <Plus size={16} /> New <span className="kbd border-white/30 bg-transparent text-white/80">N</span>
             </button>
@@ -228,7 +233,7 @@ function ModelList({ model }: { model: ModelDef }) {
               <p className="mt-1 text-ink-3">
                 {searching ? 'Try a shorter search, or include archived records.' : `Add your first ${model.label.toLowerCase()} to get started.`}
               </p>
-              {!searching && license.writable && !model.readonly && (
+              {!searching && canCreate && !model.readonly && (
                 <button className="btn-primary mt-4" onClick={() => update({ id: 'new' })}>
                   <Plus size={16} /> New {model.label.toLowerCase()}
                 </button>
